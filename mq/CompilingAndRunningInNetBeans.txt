@@ -1,0 +1,116 @@
+Build Requirements
+------------------
+
+ 1. JDK 1.6.0_13 or higher
+ 2. NetBeans 6.1
+
+
+Build MQ with NetBeans IDE
+--------------------------
+
+ 1. Unzip the MQ source-code zip bundle.
+
+        unzip <MQ source-code JAR file>.zip
+
+ 2. In the mq directory, create a new directory called extlib
+
+	cd $TOP/mq
+	mkdir extlib
+
+ 3. Download the following jars to $TOP/mq/extlib
+
+	http://download.java.net/maven/2/javax/javaee-api/6.0/javaee-api-6.0.jar
+        http://download.java.net/maven/2/com/sun/grizzly/grizzly-nio-framework/1.9.18a/grizzly-nio-framework-1.9.18a.jar
+	http://download.java.net/maven/2/com/sun/woodstock/dependlibs/jhall/2.0/jhall-2.0.jar 
+        	
+ 4. Rename some of the jars in $TOP/mq/extlib.
+
+        cd $TOP/mq/extlib
+	mv grizzly-nio-framework-1.9.18a.jar  grizzly.jar
+        mv jhall-2.0.jar  jhall.jar
+
+ 6. Start the NetBeans IDE.
+
+ 7. In the IDE, choose File > New Project
+
+ 8. Under Categories, select Java > Java Project with Existing Sources, 
+    and click Next.
+
+ 9. In the Project Name field, type OpenMQ.
+
+10. In the Project Folder field, type full path to mq directory, 
+    and click Next.
+
+11. In the Source Packages Folders pane, click Add Folder,
+    select src/share/java folder, and click Finish.
+
+12. In Projects tab of the IDE main screen, right click on the OpenMQ project,
+    and select Properties.
+
+13. Select Libraries, Compile tab, and click on Add Library.
+
+14. Click on the Create button.
+
+15. In the Library Name field, type MQ-External, and click on Add Library.
+
+16. Select the MQ-External library, and click on Add Jar/Folder
+
+17. Browse to your $TOP/mq/extlib directory and select the javaee-api-6.0.jar, 
+    jhall.jar, grizzly.jar files then click on Add Jar/Folder.
+
+18. In the Customize Library Manager window, click OK.
+
+19. In the Add Library window, select MQ-External library, 
+    and click Add Library  
+
+20. Click on OK to close the the Project Properties window.
+
+21. In the IDE, choose Build > Clean and Build Main Project.
+
+
+Run MQ with NetBeans IDE
+------------------------
+
+ 1. Under the $TOP/mq directory, create a new directory called lib/props
+
+ 2. Copy MQ default properties files to lib/props/ 
+ 
+	cp -r $TOP/mq/src/share/props/broker/ $TOP/mq/lib/props/
+
+ 3. Copy MQ version property file to $TOP/mq/build/classes
+
+	cp $TOP/mq/version.properties $TOP/mq/build/classes/com/sun/messaging/jmq/version.properties
+
+ 4. In Projects tab of the IDE, right click on the OpenMQ project, 
+    and select Properties
+
+ 5. Select Run
+
+ 6. In the Main Class field, type com.sun.messaging.jmq.jmsserver.Broker
+
+ 7. In the Arguments field, type -tty
+
+ 8. In the Working Directory field, type full path to mq directory
+
+ 9. In the VM Options field, type
+
+	-server -Xms32m -Xmx192m -Xss128k -Dimq.home=$TOP/mq
+
+10. Click OK to close the the Project Properties window
+
+11. In the IDE, choose Run > Run Main Project
+
+
+Verify the Build
+----------------
+
+ 1. In the mq directory, run the HelloWorldMessage sample program 
+    to verify the build was successful
+
+	java -cp $TOP/mq/build/classes HelloWorldMessage
+ 
+ 2. Here is a sample output of the HelloWorldMessage program:
+
+	Sending Message: Hello World
+	Read Message: Hello World
+

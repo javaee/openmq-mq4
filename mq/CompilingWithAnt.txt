@@ -1,0 +1,96 @@
+Build Requirements
+------------------
+
+ 1. JDK 1.6.0_13 or higher
+ 2. Ant 1.7.1 or higher
+
+
+Building Message Queue with Ant
+-------------------------------
+
+ 1. Unzip the Message Queue source-code zip bundle.
+
+    	unzip <MQ source-code file>.zip
+
+ 2. Make sure you have 'wget' in your PATH.
+    On Solaris, wget is available in /usr/sfw/bin.
+
+ 3. set JAVA_HOME to a JDK 1.6.0_13 or higher.
+    set ANT_HOME to Ant 1.7.1 or higher.
+    Add 'ant' to your PATH
+
+ 4. Bootstrap the external dependencies:  (see "Troubleshooting the Build" below if this fails)
+	cd $TOP/mq
+        ant bootstrap
+
+ 5. Build everything from the top:
+	ant 
+
+    Note: If executing ant returns "java.lang.OutOfMemoryError: Java heap space",
+    you should set ANT_OPTS to -Xmx512m to limit the amount of heap per java process.
+
+Message Queue Build Output
+--------------------------
+    
+ 1. After the build, a build image of Message Queue is at:
+	$TOP/mq/dist/mq
+
+ 2. A zip bundle of that image is at:
+	$TOP/mq/dist/bundles/mq<version>*.zip
+  . A tar bundle of that image is at:
+	$TOP/mq/dist/bundles/mq<version>*.tar
+
+    Note: File permissions were not restored in this resulting
+    mq*.zip bundles so after unzipping the file, chmod the binaries 
+    to be executable, if on unix.
+
+    chmod 755 mq/bin/imq*
+
+Runing Message Queue
+--------------------
+
+ 1. From this point, IMQ_HOME is considered to be $TOP/mq/dist/mq
+
+ 2. To run the Message Queue broker:
+
+    cd IMQ_HOME/bin
+    ./imqbrokerd -tty [-javahome "<javahome>"] (unix)
+    .\imqbrokerd -tty [-javahome "<javahome>"] (windows)
+
+ 3. To run a Message Queue client:
+
+    (In the mq/examples directory, run the HelloWorldMessage sample program 
+    to verify the build was successful.)
+
+    cd IMQ_HOME/mq/examples/helloworld/helloworldmessage
+
+    set CLASSPATH to include 
+	$IMQ_HOME/lib/jms.jar
+	$IMQ_HOME/lib/imq.jar
+	$IMQ_HOME/examples/helloworld/helloworldmessage
+
+    java HelloWorldMessage
+ 
+	Sending Message: Hello World
+	Read Message: Hello World
+
+
+Troubleshooting the Build
+-------------------------
+
+* If 'ant bootstrap' fails, you can workaround this by
+  downloading the external jars files manually.
+
+   1. Download the following files into $TOP/mq/extlib/
+      http://download.java.net/maven/2/javax/javaee-api/6.0/javaee-api-6.0.jar
+      http://download.java.net/maven/2/com/sun/grizzly/grizzly-nio-framework/1.9.18a/grizzly-nio-framework-1.9.18a.jar
+      http://download.java.net/maven/2/com/sun/woodstock/dependlibs/jhall/2.0/jhall-2.0.jar
+
+   2. Rename grizzly-nio-framework-1.9.18a.jar to grizzly.jar
+      Rename jhall-2.0.jar to jhall.jar
+   
+   Then continue to build the product by typing 'ant'.
+
+
+* If executing ant returns "java.lang.OutOfMemoryError: Java heap space",
+  you should set ANT_OPTS to -Xmx512m to limit the amount of heap per java process.

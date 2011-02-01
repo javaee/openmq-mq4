@@ -1,0 +1,3 @@
+This lib/fscontext.jar was rebuilt to include the original jndi 
+fscontext.jar and the providerutil.jar classes which we use 
+in our SUNWiqfs package as well as delivery on other platforms.
