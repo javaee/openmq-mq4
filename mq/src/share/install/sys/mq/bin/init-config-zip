@@ -80,8 +80,10 @@ NEXT_STEPS=None
 
 CHECK_PERM_FILES='
 var/install/contents/mq/uninstaller
+bin/pkg
 mq/bin/imqadmin
 mq/bin/imqbrokerd
+mq/bin/imqbridgemgr
 mq/bin/imqcmd
 mq/bin/imqdbmgr
 mq/bin/imqkeytool

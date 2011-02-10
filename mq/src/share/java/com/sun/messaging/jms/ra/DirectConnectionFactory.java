@@ -267,7 +267,6 @@ public class DirectConnectionFactory extends ConnectionCreator
         long connectionId = _createConnectionId(username, password);
         DirectConnection dc = new DirectConnection(this, this.jmsservice,
                 connectionId, this.inACC);
-        addConnection(dc);
         return (Connection) dc; 
     }
     /////////////////////////////////////////////////////////////////////////
@@ -325,7 +324,6 @@ public class DirectConnectionFactory extends ConnectionCreator
         long connectionId = _createConnectionId(username, password);
         DirectConnection dc = new DirectConnection(this, this.jmsservice,
                 connectionId, this.inACC);
-        addConnection(dc);
         return (QueueConnection) dc; 
     }
     /////////////////////////////////////////////////////////////////////////
@@ -382,7 +380,6 @@ public class DirectConnectionFactory extends ConnectionCreator
         long connectionId = _createConnectionId(username, password);
         DirectConnection dc = new DirectConnection(this, this.jmsservice,
                 connectionId, this.inACC);
-        addConnection(dc);
         return (TopicConnection) dc; 
     }
     /////////////////////////////////////////////////////////////////////////
@@ -498,31 +495,6 @@ public class DirectConnectionFactory extends ConnectionCreator
     }
 
     /**
-     *  Add a connection to the list of JMS Connections created by this
-     *  Direct ConnectionFactory.
-     *
-     *  @param  connection The DirectConnection to be added
-     */
-    protected void addConnection(DirectConnection connection) {
-        if (this.connections == null) {
-            this.connections = new Vector <DirectConnection> ();
-        }
-        this.connections.add(connection);
-    }
-
-    /**
-     *  Removes a connection fromthe list of JMS Connections created by this
-     *  Direct ConnectionFactory
-     *
-     *  @param  connection  The DirectConnection to be removed
-     */
-    protected void removeConnection(DirectConnection connection) {
-        boolean result = this.connections.remove(connection);
-        //This connection *has* to be in the list else something went wrong :)
-        assert (result == true);
-    }
-
-    /**
      *  Returns whether this DirectConnectionFactory is active in an
      *  Application Server cluster or not.
      *
@@ -550,7 +522,6 @@ public class DirectConnectionFactory extends ConnectionCreator
         long connectionId = _createConnectionId(username, password);
         DirectConnection dc = new DirectConnection(this, this.jmsservice,
                 connectionId, this.inACC);
-        this.addConnection(dc);
         return dc;
     }
 

@@ -239,10 +239,22 @@ public abstract class BaseTransactionManager {
 					+ " num incompleteUnstored=" + incompleteUnstored.size();
 			logger.log(Logger.DEBUG, msg);
 		}
-		Iterator<BaseTransaction> iter = incompleteUnstored.values().iterator();
+
+		ArrayList<TransactionUID> incmps = null;
+		synchronized(incompleteUnstored) {
+			incmps = new ArrayList<TransactionUID>(incompleteUnstored.keySet());
+		}
+
+		TransactionUID tid = null;
+		BaseTransaction baseTxn = null;
+		Iterator<TransactionUID> iter = incmps.iterator();
 		while (iter.hasNext()) {
-			BaseTransaction baseTxn = iter.next();
-			if (!preparedTxnStore.containsTransaction(baseTxn.getTid())) {
+			tid = iter.next();
+			if (!preparedTxnStore.containsTransaction(tid)) {
+				baseTxn = (BaseTransaction)incompleteUnstored.get(tid);
+				if (baseTxn == null) {
+					continue;
+				}
 				if (Store.getDEBUG()) {
 					String msg = getPrefix()
 							+ " transaction storing preparedTransaction "
@@ -262,7 +274,7 @@ public abstract class BaseTransactionManager {
 				
 					String msg = getPrefix()
 							+ " transaction already exists in preparedTxnStore "
-							+ baseTxn;
+							+ tid+"["+incompleteUnstored.get(tid)+"]";
 					logger.log(Logger.INFO, msg);
 				
 			}
