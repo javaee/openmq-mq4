@@ -1231,7 +1231,19 @@ class TidList {
 		if (file.exists()) {
 			boolean deleted = file.delete();
 			if (!deleted) {
-				throw new BrokerException("Could not delete " + file);
+                String[] args = {BASENAME, rootDir.getPath(), BASENAME+".deleted"};
+                Globals.getLogger().log(Logger.WARNING, 
+                    Globals.getBrokerResources().getKString(
+                        BrokerResources.W_UNABLE_DELETE_FILE_IN_DIR, args));
+                File nf = new File(rootDir, BASENAME+".deleted");
+		        if (!file.renameTo(nf)) {
+                    Globals.getLogger().log(Logger.WARNING, 
+                        Globals.getBrokerResources().getKString(
+                            BrokerResources.W_UNABLE_RENAME_FILE, file.getPath(), nf.getPath()));
+
+				    throw new BrokerException(Globals.getBrokerResources().getKString(
+                        BrokerResources.X_COULD_NOT_DELETE_FILE, file));
+                }
 			}
 		}
 	}

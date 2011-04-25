@@ -37,6 +37,6 @@
 # only if the new code is made subject to such option by the copyright
 # holder.
 #
-InstallHome.directory.INSTALL_HOME=c:\\Program Files\\Sun\\MessageQueue
-InstallDirectory.directory.INSTALL_DIRECTORY=c:\\Program Files\\Sun\\MessageQueue
+InstallHome.directory.INSTALL_HOME=c:\\Program Files\\Oracle\\MessageQueue
+InstallDirectory.directory.INSTALL_DIRECTORY=c:\\Program Files\\Oracle\\MessageQueue
 PageFlow.Mode.ACTIVE_MODES_LIST=REG_ONLY

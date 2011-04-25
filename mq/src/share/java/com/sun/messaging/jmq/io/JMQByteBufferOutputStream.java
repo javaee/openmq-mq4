@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2000-2010 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000-2011 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -81,7 +81,7 @@ public class JMQByteBufferOutputStream extends OutputStream {
      * Creates a new byte buffer output stream using the specified
      * ByteBuffer as the backing store. The buffer is used
      * exactly "as-is". It is not copied, duplicated or sliced.
-     * Writes to the ouput stream will start writing to the buffer
+     * Writes to the output stream will start writing to the buffer
      * at its current position. The buffer's position will be updated
      * as data is written to the output stream.
      * If the buffer fills up, it is not re-allocated.
@@ -130,7 +130,7 @@ public class JMQByteBufferOutputStream extends OutputStream {
     }
 
     /**
-     * Clears the backing buffer so that all currently accumulated ouput
+     * Clears the backing buffer so that all currently accumulated output
      * in the output stream is disgarded. The output stream can be
      * used again, reusing the already allocated buffer space.
      *

@@ -45,6 +45,7 @@
 package com.sun.messaging.jmq.jmsclient;
 
 import java.util.Vector;
+import java.util.Hashtable;
 import java.util.Enumeration;
 
 import java.io.PrintStream;
@@ -398,5 +399,31 @@ class SessionQueue implements Traceable {
             }
 
         }
+    }
+
+    protected Hashtable getDebugState(boolean verbose) {
+        Hashtable ht = new Hashtable();
+        ht.put("isLocked", Boolean.valueOf(isLocked));
+        ht.put("sessionIsStopped", Boolean.valueOf(sessionIsStopped));
+        ht.put("isClosed", Boolean.valueOf(isClosed));
+        ht.put("listenerIsSetLate", Boolean.valueOf(listenerIsSetLate));
+        ht.put("constructTime", Long.valueOf(constructTime));
+        ht.put("queueSize", queue.size());
+        if (verbose) {
+            Vector v = new Vector();
+            Object[] objs = queue.toArray();
+            int osize = objs.length;
+            Object o = null;
+            for ( int i = 0; i < osize; i++ ) {
+                o = objs[i];  
+                if (o instanceof ReadOnlyPacket) {
+                    v.add(((ReadOnlyPacket)o).getMessageID()); 
+                } else {
+                    v.add(o.toString());
+                }
+            }
+            ht.put("queue", v);
+        }
+        return ht;
     }
 }

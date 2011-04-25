@@ -9,7 +9,7 @@ UMS examples found in the directories listed below.
 Before you can run the examples, you must first deploy
 the UMS web service's WAR file to a web container.
 For additional information, see Configuring the UMS
-(https://mq.dev.java.net/4.3-content/ums/config.html).
+(https://mq.java.net/4.3-content/ums/config.html).
 
 
 Directory     Description

@@ -68,7 +68,7 @@ public final class TakingoverTracker {
     public static final int BEFORE_PROCESSING = 6;
     public static final int AFTER_PROCESSING  = 7;
 
-    private String brokerID = null;   // Broker that is being taken over
+    private String targetName = null;   // Broker that is being taken over
     private UID storeSession = null;  
     private Thread runner = null;
     private Map msgMap = null; // Message IDs & destination IDS to be takeover
@@ -81,9 +81,9 @@ public final class TakingoverTracker {
 
     /**
      */
-    public TakingoverTracker(String brokerid, Thread runnerThread) {
+    public TakingoverTracker(String targetName, Thread runnerThread) {
 
-        brokerID = brokerid;
+        this.targetName = targetName;
         runner = runnerThread;
     }
 
@@ -123,8 +123,8 @@ public final class TakingoverTracker {
      * Return the brokerID that is being taken over.
      * @return the brokerID that is being taken over
      */
-    public final String getBrokerID() {
-        return brokerID;
+    public final String getTargetName() {
+        return targetName;
     }
 
     public final Thread getTakeoverRunner() { 
@@ -189,7 +189,7 @@ public final class TakingoverTracker {
     }
 
     public String toString() {
-        return getBrokerID()+"[StoreSession:"+
+        return getTargetName()+"[StoreSession:"+
          (getStoreSessionUID() == null ? "":getStoreSessionUID())+"], "+
          (getBrokerSessionUID() == null ? "":getBrokerSessionUID())+
          ", "+lastHeartbeat+", ("+getStage()+")";

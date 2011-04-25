@@ -80,6 +80,7 @@ public interface BrokerConstants  {
     public static String PROP_NAME_BKR_CLS_URL		= "imq.cluster.url";
     public static String PROP_NAME_BKR_CLS_CLUSTER_ID	= "imq.cluster.clusterid";
     public static String PROP_NAME_BKR_CLS_HA		= "imq.cluster.ha";
+    public static String PROP_NAME_BKR_CLS_REP		= "imq.persist.bdb.replication.enabled";
     public static String PROP_NAME_BKR_CLS_BROKER_ID	= "imq.brokerid";
     public static String PROP_NAME_BKR_PRODUCT_VERSION	= "imq.product.version";
     public static String PROP_NAME_BKR_AUTOCREATE_QUEUE_MAX_ACTIVE_CONS

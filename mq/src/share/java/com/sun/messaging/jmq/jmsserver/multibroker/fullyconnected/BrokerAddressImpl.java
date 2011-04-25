@@ -58,6 +58,7 @@ import com.sun.messaging.jmq.jmsserver.util.LoopbackAddressException;
 import com.sun.messaging.jmq.jmsserver.util.VerifyAddressException;
 import com.sun.messaging.jmq.jmsserver.core.BrokerAddress;
 import com.sun.messaging.jmq.jmsserver.core.BrokerMQAddress;
+import com.sun.messaging.jmq.jmsserver.persist.Store;
 
 
 /**
@@ -185,6 +186,13 @@ public class BrokerAddressImpl extends BrokerAddress {
     }
 
     public String getBrokerID() {
+        if (Globals.getBDBREPEnabled()) {
+            try {
+                return Store.makeReplicationNodeName(instName, storeSessionUID);
+            } catch (Exception e) {
+                return null;
+            }
+        }
         return brokerID;
     }
 
@@ -211,8 +219,9 @@ public class BrokerAddressImpl extends BrokerAddress {
     }
 
     public boolean equals(Object obj) {
-        if (! (obj instanceof BrokerAddressImpl))
+        if (obj == null || !(obj instanceof BrokerAddressImpl)) {
             return false;
+        }
 
         BrokerAddressImpl addr = (BrokerAddressImpl) obj;
 
@@ -279,9 +288,9 @@ public class BrokerAddressImpl extends BrokerAddress {
         buf.append("&");
         buf.append("brokerSessionUID=");
         buf.append(getBrokerSessionUID());
-        if (getHAEnabled()) {
-            buf.append("&");
-            buf.append("ha=true");
+        buf.append("&");
+        buf.append("ha="+getHAEnabled());
+        if (getStoreSessionUID() != null) {
             buf.append("&");
             buf.append("storeSessionUID=");
             buf.append(getStoreSessionUID());
@@ -292,13 +301,14 @@ public class BrokerAddressImpl extends BrokerAddress {
     public BrokerAddress fromProtocolString(String s) throws Exception {
         BrokerMQAddress a = BrokerMQAddress.createAddress(s);
         String ha = (String)a.getProperty("ha");
+        boolean isha = Boolean.valueOf(ha);
         return new BrokerAddressImpl(a.getHostName(), 
                      a.getProperty("instName"),
                      a.getPort(),
-					 !(ha == null),
+                     isha,
                      a.getProperty("brokerID"),
                      new UID(Long.valueOf(a.getProperty("brokerSessionUID")).longValue()),
-                     ((ha == null) ? null:
+                     (a.getProperty("storeSessionUID") == null ? null:
                       new UID(Long.valueOf(a.getProperty("storeSessionUID")).longValue())));
     }
 
@@ -309,11 +319,11 @@ public class BrokerAddressImpl extends BrokerAddress {
     public void writeBrokerAddress(GPacket gp) {
         gp.putProp("HA", Boolean.valueOf(getHAEnabled()));
         if (brokerID != null) gp.putProp("brokerID", getBrokerID());
-        if (brokerSessionUID != null) gp.putProp("brokerSession", new Long(getBrokerSessionUID().longValue()));
-        if (storeSessionUID != null) gp.putProp("storeSession", new Long(getStoreSessionUID().longValue()));
+        if (brokerSessionUID != null) gp.putProp("brokerSession", Long.valueOf(getBrokerSessionUID().longValue()));
+        if (storeSessionUID != null) gp.putProp("storeSession", Long.valueOf(getStoreSessionUID().longValue()));
         gp.putProp("instanceName", getInstanceName());
         gp.putProp("host", getHostName());
-        gp.putProp("port", new Integer(getPort()));
+        gp.putProp("port", Integer.valueOf(getPort()));
     }
 
     public static BrokerAddressImpl readBrokerAddress(GPacket gp) throws Exception {

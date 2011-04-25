@@ -63,7 +63,7 @@ public class TakeoverCompleteHandler extends GPacketHandler {
 
     public void handle(BrokerAddress sender, GPacket pkt) {
         if (pkt.getType() == ProtocolGlobals.G_TAKEOVER_COMPLETE) {
-            if (!Globals.getHAEnabled()) {
+            if (!Globals.getHAEnabled() && !Globals.getBDBREPEnabled()) {
             logger.log(logger.ERROR, BrokerResources.E_INTERNAL_BROKER_ERROR, 
                        "Received Unexpected TAKEOVER_COMPLETE from "+sender);
             return;

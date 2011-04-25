@@ -181,6 +181,8 @@ implements javax.resource.spi.ActivationSpec,
      * Only used in a clustered container when shared subscriptions are enabled.
      * Only used for non-durable topic subscriptions.
      * Only used if clientID is not explicitly set, and is always optional.
+     * 
+     * (For info) In GlassFish 3.1 this will be set to <domainName>#<clusterName> 
      */
     private String groupName = null;
 
@@ -902,6 +904,8 @@ implements javax.resource.spi.ActivationSpec,
      * Only used in a clustered container when shared subscriptions are enabled.
      * Only used for non-durable topic subscriptions.
      * Only used if clientID is not explicitly set, and is mandatory if this is the case.
+     * 
+     * For info: In GlassFish 3.1 this will be set to <domainName>#<clusterName>#<EJBMessageBeanDescriptor.uniqueId>. 
      * 
      * @param mdbName
      */

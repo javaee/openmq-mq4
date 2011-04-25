@@ -91,6 +91,7 @@ public class Status {
     public static final int INVALID_LOGIN    = 413; // invalid login
     public static final int RESOURCE_FULL    = 414; // Resource is full
     public static final int UNSUPPORTED_TYPE = 415; // Unsupported type
+    public static final int EXPECTATION_FAILED = 417; // expectation failed
     public static final int ENTITY_TOO_LARGE = 423; // Request entity too large
 
     public static final int RETRY = 449; // Retry the request

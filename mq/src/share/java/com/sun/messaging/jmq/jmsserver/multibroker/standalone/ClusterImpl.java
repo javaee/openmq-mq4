@@ -85,7 +85,7 @@ public class ClusterImpl implements Cluster, ConfigListener {
     public void start() {
     }
 
-    public void shutdown() {
+    public void shutdown(boolean force, BrokerAddress excludedBroker) {
     }
 
     public void closeLink(BrokerAddress remote, boolean force) {

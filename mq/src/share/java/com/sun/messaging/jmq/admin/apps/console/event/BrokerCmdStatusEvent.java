@@ -108,6 +108,7 @@ public class BrokerCmdStatusEvent extends CommonCmdStatusEvent {
     public final static int	DELETE_MSG		= 44;
     public final static int	CHECKPOINT_BKR		= 45;
     public final static int CLUSTER_CHANGE_MASTER   = 46;
+    public final static int	MIGRATESTORE_BKR        = 47;
 
     private transient BrokerAdmin		ba;
 

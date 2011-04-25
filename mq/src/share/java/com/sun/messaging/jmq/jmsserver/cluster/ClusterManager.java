@@ -393,4 +393,8 @@ public interface ClusterManager
     */
    public void reloadConfig() throws BrokerException;
 
+   /**
+    */
+   public MQAddress getBrokerNextToMe();
+
 }

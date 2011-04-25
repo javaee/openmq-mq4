@@ -139,7 +139,7 @@ public class ClusterTakeoverInfo
         assert ( protocol == ProtocolGlobals.G_TAKEOVER_COMPLETE ||
                  protocol == ProtocolGlobals.G_TAKEOVER_PENDING ||
                  protocol == ProtocolGlobals.G_TAKEOVER_ABORT );
-        if (!Globals.getHAEnabled()) {
+        if (!Globals.getHAEnabled() && !Globals.getBDBREPEnabled()) {
             throw new BrokerException(
                 Globals.getBrokerResources().getKString(
                     BrokerResources.E_INTERNAL_BROKER_ERROR,

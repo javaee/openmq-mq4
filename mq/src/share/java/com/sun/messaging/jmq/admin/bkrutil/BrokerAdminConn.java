@@ -1034,6 +1034,7 @@ public abstract class BrokerAdminConn implements ExceptionListener {
 	bae.setBrokerErrorStr(errorStr);
 	bae.setReplyMsgType(actualMsgType);
 	bae.setReplyStatus(actualReplyStatus);
+    bae.setReplyMsg(mesg);
         throw bae;
     }
 

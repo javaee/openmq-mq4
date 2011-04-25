@@ -262,7 +262,7 @@ implements XAResource {
 				try {
 					xari.clearTransactionInfo();
 				} catch (JMSException jmse) {
-					System.err.println("MQRA:DXAR:commit:XAException-Exception=" + jmse.getMessage());
+					_loggerJX.log(Level.SEVERE,"MQRA:DXAR:commit:XAException-Exception=" + jmse.getMessage(),jmse);
 					Debug.printStackTrace(jmse);
 					XAException xae = new XAException(XAException.XAER_RMFAIL);
 					xae.initCause(jmse);
@@ -449,7 +449,7 @@ implements XAResource {
         		try {
 					clearTransactionInfo();
 				} catch (JMSException jmse) {
-					System.err.println("MQRA:DXAR:forget:XAException-Exception=" + jmse.getMessage());
+					_loggerJX.log(Level.SEVERE,"MQRA:DXAR:forget:XAException-Exception=" + jmse.getMessage(),jmse);
 					Debug.printStackTrace(jmse);
 					XAException xae = new XAException(XAException.XAER_RMFAIL);
 					xae.initCause(jmse);
@@ -713,7 +713,7 @@ implements XAResource {
        	 		try {
 					xari.clearTransactionInfo();
 				} catch (JMSException jmse) {
-					System.err.println("MQRA:DXAR:rollback:XAException-Exception=" + jmse.getMessage());
+					_loggerJX.log(Level.SEVERE,"MQRA:DXAR:rollback:XAException-Exception=" + jmse.getMessage(),jmse);
 					Debug.printStackTrace(jmse);
 					XAException xae = new XAException(XAException.XAER_RMFAIL);
 					xae.initCause(jmse);
@@ -872,14 +872,13 @@ implements XAResource {
 		} else {
 			if (this.mXid.equals(foreignXid)) {
 				if (this.mTransactionId != transactionId) {
-					System.out.println("DXAR:start():Warning:" + "Received diff txId for same Xid:"
+					_loggerJX.log(Level.INFO,"DXAR:start():Warning: XAResource with state "+getStateAsString()+" received diff txId for same Xid:"
 							+ "switching transactionId:" + "\nDXAR TXid=" + this.mTransactionId + "\ngot  TXid="
 							+ transactionId + "\nFor   Xid=" + printXid(mXid));
 					this.mTransactionId = transactionId;
 				}
 			} else {
-				System.out
-						.println("DXAR:start():Warning:" + "Received diff Xid for open txnId:"
+				_loggerJX.log(Level.INFO,"DXAR:start():Warning: XAResource with state "+getStateAsString()+" received diff Xid for open txnId:"
 								+ "switching transactionId:" + "\nDXAR  Xid=" + printXid(mXid) + "\nDXAR TXid="
 								+ this.mTransactionId + "\ngot   Xid=" + printXid(foreignXid) + "\ngot  TXid="
 								+ transactionId);
@@ -1006,5 +1005,24 @@ implements XAResource {
         result=result+(")");
         return result;
     }
+    
+	private String getStateAsString() {
+		switch (getResourceState()) {
+		case CREATED: // after first creation, or after commit() or rollback()
+			return "CREATED";
+		case STARTED: // after start() called
+			return "STARTED"; 
+		case FAILED:  // after end(fail) called
+			return "FAILED";
+		case INCOMPLETE: // after end(suspend) called
+			return "INCOMPLETE"; 
+		case COMPLETE: // after end (success) called
+			return "COMPLETE"; 
+		case PREPARED: // after prepare() called
+			return "PREPARED";
+		default:
+			return Integer.toString(getResourceState());
+		}
+	}
     
 }

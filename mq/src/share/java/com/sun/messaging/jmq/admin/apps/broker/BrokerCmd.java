@@ -314,6 +314,8 @@ public class BrokerCmd implements BrokerCmdOptions, BrokerConstants  {
 	    checkQuiesce(brokerCmdProps);
 	} else if (cmd.equals(PROP_VALUE_CMD_TAKEOVER))  {
 	    checkTakeover(brokerCmdProps);
+	} else if (cmd.equals(PROP_VALUE_CMD_MIGRATESTORE))  {
+	    checkMigrateStore(brokerCmdProps);
 	} else if (cmd.equals(PROP_VALUE_CMD_UNQUIESCE))  {
 	    checkUnquiesce(brokerCmdProps);
 	} else if (cmd.equals(PROP_VALUE_CMD_RESET))  {
@@ -464,6 +466,12 @@ public class BrokerCmd implements BrokerCmdOptions, BrokerConstants  {
 	checkCmdArg(brokerCmdProps, CMD_TAKEOVER_VALID_CMDARGS);
 
         checkTargetName(brokerCmdProps);
+    }
+
+    private static void checkMigrateStore(BrokerCmdProperties brokerCmdProps) 
+			throws BrokerCmdException  {
+	checkCmdArg(brokerCmdProps, CMD_MIGRATESTORE_VALID_CMDARGS);
+
     }
 
 

@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2000-2010 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000-2011 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -64,8 +64,8 @@ public class StoreManager {
 
     static private final String PERSIST_PROP = Globals.IMQ + ".persist.";
     static private final String CLASS_PROP = ".class";
-    static private final String STORE_TYPE_PROP =
-					Globals.IMQ + ".persist.store";
+    public static final String STORE_TYPE_PROP =
+                     Globals.IMQ + ".persist.store";
 
     static private final String TXNLOG_ENABLED_PROP =
                     Globals.IMQ + ".persist.file.txnLog.enabled";
@@ -74,6 +74,13 @@ public class StoreManager {
                     Globals.IMQ + ".persist.file.newTxnLog.enabled";
 
     static public final boolean NEW_TXNLOG_ENABLED_PROP_DEFAULT = true;
+
+    static public final String BDB_REPLICATION_PROP_PREFIX = 
+                    Globals.IMQ + ".persist.bdb.replication.";
+    static public final String BDB_REPLICATION_ENABLED_PROP = 
+                    BDB_REPLICATION_PROP_PREFIX+"enabled";
+
+    static public final boolean BDB_REPLICATION_ENABLED_DEFAULT = true;
 
     
     static private final String DEFAULT_STORE_TYPE = Store.FILE_STORE_TYPE;
@@ -87,7 +94,12 @@ public class StoreManager {
     static private final String DEFAULT_INMEMORYSTORE_CLASS =
 	"com.sun.messaging.jmq.jmsserver.persist.inmemory.InMemoryStore";
 
+    static private final String DEFAULT_BDBSTORE_CLASS =
+	"com.sun.messaging.jmq.jmsserver.persist.bdb.BDBStore";
+
     static private Boolean isConfiguredFileStore = null;
+    static private Boolean isConfiguredJDBCStore = null;
+    static private Boolean isConfiguredBDBStore = null;
     static private Boolean txnLogEnabled = null;
     static private Boolean newTxnLogEnabled = null;
 
@@ -141,18 +153,24 @@ public class StoreManager {
 				PERSIST_PROP + type + CLASS_PROP);
 	    
         isConfiguredFileStore = new Boolean(false);
+        isConfiguredJDBCStore = new Boolean(false);
+        isConfiguredBDBStore = new Boolean(false);
 	    if (classname == null || classname.equals("")) {
-		if (type.equals(Store.FILE_STORE_TYPE)) {
-		    classname = DEFAULT_FILESTORE_CLASS;
-            isConfiguredFileStore = new Boolean(true);
-		} else if (type.equals(Store.JDBC_STORE_TYPE))
-		    classname = DEFAULT_JDBCSTORE_CLASS;
-		else if (type.equals(Store.INMEMORY_STORE_TYPE))
-		    classname = DEFAULT_INMEMORYSTORE_CLASS;
-		else
-		    classname = null;
-	    }
-
+            if (type.equals(Store.FILE_STORE_TYPE)) {
+                classname = DEFAULT_FILESTORE_CLASS;
+                isConfiguredFileStore = new Boolean(true);
+            } else if (type.equals(Store.JDBC_STORE_TYPE)) {
+                classname = DEFAULT_JDBCSTORE_CLASS;
+                isConfiguredJDBCStore = new Boolean(true);
+            } else if (type.equals(Store.INMEMORY_STORE_TYPE)) {
+                classname = DEFAULT_INMEMORYSTORE_CLASS;
+            } else if (type.equals(Store.BDB_STORE_TYPE)) {
+                classname = DEFAULT_BDBSTORE_CLASS;
+                isConfiguredBDBStore = new Boolean(true);
+            } else {
+                classname = null;
+            }
+        }
 	    if (classname == null) {
 		throw new BrokerException(
                     br.getString(br.E_BAD_STORE_TYPE, type));
@@ -231,6 +249,27 @@ public class StoreManager {
 
         String type = Globals.getConfig().getProperty(STORE_TYPE_PROP, DEFAULT_STORE_TYPE);
         return ((type.equals(Store.FILE_STORE_TYPE)));
+    }
+
+    public static boolean isConfiguredJDBCStore() {
+        Boolean isjdbc = isConfiguredJDBCStore;
+        if (isjdbc != null) return isjdbc.booleanValue();
+
+        String type = Globals.getConfig().getProperty(STORE_TYPE_PROP, DEFAULT_STORE_TYPE);
+        return ((type.equals(Store.JDBC_STORE_TYPE)));
+    }
+
+    public static boolean isConfiguredBDBStore() {
+        Boolean isbdb = isConfiguredBDBStore;
+        if (isbdb != null) return isbdb.booleanValue();
+
+        String type = Globals.getConfig().getProperty(STORE_TYPE_PROP, DEFAULT_STORE_TYPE);
+        return ((type.equals(Store.BDB_STORE_TYPE)));
+    }
+
+    public static boolean bdbREPEnabled() {
+        return isConfiguredBDBStore() && Globals.getConfig().getBooleanProperty(
+            BDB_REPLICATION_ENABLED_PROP, BDB_REPLICATION_ENABLED_DEFAULT);
     }
 
     public static boolean txnLogEnabled() {

@@ -127,6 +127,8 @@ import com.sun.messaging.jmq.util.txnlog.file.FileTransactionLogWriter;
 
 public class TransactionLogManager implements CheckPointListener {
 
+    private static boolean DEBUG = false;
+
 	static final String TXNLOG_PROP_PREFIX = Globals.IMQ
 			+ ".persist.file.txnLog";
 	static final String TXNLOG_FILE_SIZE_PROP = TXNLOG_PROP_PREFIX
@@ -215,6 +217,9 @@ public class TransactionLogManager implements CheckPointListener {
 		
 	}
 	
+    public boolean getDEBUG() {
+        return (Store.getDEBUG() || DEBUG);
+    }
 	 
 
 	public void startup() throws BrokerException {
@@ -785,8 +790,8 @@ public class TransactionLogManager implements CheckPointListener {
 
 	public void doCheckpoint() {
 
-		if (Store.getDEBUG()) {
-			logger.log(Logger.DEBUG, getPrefix() + " doCheckpoint");
+		if (getDEBUG()) {
+			logger.log(Logger.INFO, getPrefix() + " doCheckpoint");
 		}
 		// 1. get exclusive lock on transaction log
 		// 2. wait for all logged commits to be written to message store
@@ -855,9 +860,9 @@ public class TransactionLogManager implements CheckPointListener {
 		} finally {
 			store.txnLogExclusiveLock.unlock();
 
-			if (Store.getDEBUG()) {
+			if (getDEBUG()) {
 				String msg = getPrefix() + " doCheckpoint complete";
-				logger.log(Logger.DEBUG, msg);
+				logger.log(Logger.INFO, msg);
 			}
 		}
 	}

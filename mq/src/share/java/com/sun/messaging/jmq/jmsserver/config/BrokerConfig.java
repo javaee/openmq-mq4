@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2000-2010 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000-2011 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -134,7 +134,7 @@ import com.sun.messaging.jmq.jmsserver.Globals;
  * <P>
  * Classes which use this configuration object need to be 
  * careful to ONLY use this at object creation or when an
- * update has occured (because it has a high overhead)
+ * update has occurred (because it has a high overhead)
  * <P>
  *
  * @see java.util.Properties
@@ -1125,8 +1125,10 @@ public class BrokerConfig extends UpdateProperties
         + IMQ + ".red.seconds=10\n"
         + IMQ + ".cluster.manager.class="+
           "com.sun.messaging.jmq.jmsserver.cluster.ClusterManagerImpl\n"
-        + IMQ + ".hacluster.manager.class="+
+        + IMQ + ".hacluster.jdbc.manager.class="+
           "com.sun.messaging.jmq.jmsserver.cluster.ha.HAClusterManagerImpl\n"
+        + IMQ + ".hacluster.bdb.manager.class="+
+          "com.sun.messaging.jmq.jmsserver.cluster.ha.RepHAClusterManagerImpl\n"
         + IMQ + ".cluster.heartbeat.class="+
           "com.sun.messaging.jmq.jmsserver.multibroker.heartbeat.HeartbeatImpl\n"
         ;

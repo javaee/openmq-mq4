@@ -128,9 +128,9 @@ public class JDBCStore extends Store implements DBConstants {
             br.getString(BrokerResources.I_JDBC_STORE_INFO, msgArgs));
 
         if (createStore) {
-            logger.log(Logger.INFO, BrokerResources.I_JDBCSTORE_AUTOCREATE_ENABLED);
+            logger.log(Logger.INFO, BrokerResources.I_STORE_AUTOCREATE_ENABLED);
         } else {
-            logger.log(Logger.INFO, BrokerResources.I_JDBCSTORE_AUTOCREATE_DISABLED);
+            logger.log(Logger.INFO, BrokerResources.I_STORE_AUTOCREATE_DISABLED);
         }
 
         msgEnumUseCursor = config.getBooleanProperty( MSG_ENUM_USE_CURSOR_PROP, !dbmgr.isHADB() );

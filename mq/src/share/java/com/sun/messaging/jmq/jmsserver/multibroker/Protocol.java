@@ -68,7 +68,8 @@ public interface Protocol extends ClusterCallback
 
     public void startClusterIO();
 
-    public void stopClusterIO(boolean requestTakeover);
+    public void stopClusterIO(boolean requestTakeover, boolean force,
+        com.sun.messaging.jmq.jmsserver.core.BrokerAddress excludedBroker);
 
     public void reloadCluster();
 
@@ -203,9 +204,17 @@ public interface Protocol extends ClusterCallback
 
     public com.sun.messaging.jmq.jmsserver.core.BrokerAddress lookupBrokerAddress(String brokerid);
 
+    public com.sun.messaging.jmq.jmsserver.core.BrokerAddress lookupBrokerAddress(BrokerMQAddress mqaddr);
+
     public void changeMasterBroker(BrokerMQAddress newmaster, BrokerMQAddress oldmaster)
     throws BrokerException;
 
+    public String sendTakeoverMEPrepare(String brokerID, byte[] commitToken,
+                                        Long syncTimeout, String uuid)
+                                        throws BrokerException;
+
+    public String sendTakeoverME(String brokerID, String uuid)
+    throws BrokerException;
 
     public Hashtable getDebugState();
 }

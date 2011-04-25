@@ -112,7 +112,7 @@ public class TakeoverHandler extends AdminCmdHandler
 
         try {
             BrokerStateHandler bsh = Globals.getBrokerStateHandler();
-            bsh.takeoverBroker(brokerID, true);
+            bsh.takeoverBroker(brokerID, null, true);
         } catch (Exception ex) {
             logger.logStack(Logger.ERROR, Globals.getBrokerResources().getKString(
                    BrokerResources.E_UNABLE_TO_TAKEOVER_BKR, brokerID, ex.getMessage()), ex);

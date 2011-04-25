@@ -436,12 +436,19 @@ public class ServiceManager
      * Stop all active services
      */
     public void stopAllActiveServices(boolean all)
-        throws BrokerException
-    {
+    throws BrokerException {
+        stopAllActiveServices(all, null);
+    }
+
+    public void stopAllActiveServices(boolean all, String excludedServiceName)
+    throws BrokerException {
         Set activeServices = getAllActiveServices();
         Iterator iter = activeServices.iterator();
         while (iter.hasNext()) {
             String name = (String)iter.next();
+            if (excludedServiceName != null && name.equals(excludedServiceName)) {
+                continue;
+            }
             Service service = getService(name);
             stopService(name, all);
         }

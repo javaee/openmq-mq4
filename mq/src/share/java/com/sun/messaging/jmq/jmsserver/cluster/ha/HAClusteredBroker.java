@@ -119,8 +119,9 @@ public interface HAClusteredBroker extends ClusteredBroker
      * @throws IllegalStateException if this broker can not takeover.
      * @return data associated with previous broker
      */
-    public TakeoverStoreInfo takeover(boolean force, TakingoverTracker tracker)
-            throws BrokerException;
+    public TakeoverStoreInfo takeover(boolean force, Object extraInfo,
+                                     TakingoverTracker tracker)
+                                     throws BrokerException;
 
     /**
      * Remove takeover broker ID and set state to OPERATING

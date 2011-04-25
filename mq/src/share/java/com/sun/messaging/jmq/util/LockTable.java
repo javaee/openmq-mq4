@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2000-2010 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000-2011 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -47,7 +47,7 @@ package com.sun.messaging.jmq.util;
 import java.util.*;
 /**
  * this is a generic class which allows you to wait for notification
- * that an event has occured even if the objects are different but
+ * that an event has occurred even if the objects are different but
  * equivalent (generate the same hashCode/isequals == true)
  */
 

@@ -127,9 +127,9 @@ public class ClusterBroadcaster implements ClusterBroadcast {
         child.startClusterIO();
     }
 
-    public void stopClusterIO(boolean requestTakeover)
-    {
-        child.stopClusterIO(requestTakeover);
+    public void stopClusterIO(boolean requestTakeover, boolean force,
+                              BrokerAddress excludedBroker) {
+        child.stopClusterIO(requestTakeover, force, excludedBroker);
     }
 
     public void pauseMessageFlow() throws IOException
@@ -335,10 +335,17 @@ public class ClusterBroadcaster implements ClusterBroadcast {
     }
 
     /**
-     * Lookup broker address for a brokerID - for HA mode only
+     * Lookup broker address for a brokerID - for HA mode and BDBREP mode only
      */
     public BrokerAddress lookupBrokerAddress(String brokerid) {
         return child.lookupBrokerAddress(brokerid);
+    }
+
+    /**
+     * Lookup broker address
+     */
+    public BrokerAddress lookupBrokerAddress(BrokerMQAddress mqaddr) {
+        return child.lookupBrokerAddress(mqaddr);
     }
 
     /**
@@ -347,6 +354,21 @@ public class ClusterBroadcaster implements ClusterBroadcast {
     public void changeMasterBroker(BrokerMQAddress newmaster, BrokerMQAddress oldmaster)
     throws BrokerException {
         child.changeMasterBroker(newmaster, oldmaster);
+    }
+
+    /**
+     */
+    public String sendTakeoverMEPrepare(String brokerID, byte[] token,
+                                        Long syncTimeout, String uuid)
+                                        throws BrokerException {
+        return child.sendTakeoverMEPrepare(brokerID, token, syncTimeout, uuid);
+    }
+
+    /**
+     */
+    public String sendTakeoverME(String brokerID, String uuid)
+    throws BrokerException {
+        return child.sendTakeoverME(brokerID, uuid);
     }
 }
 

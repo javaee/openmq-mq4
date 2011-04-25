@@ -60,7 +60,7 @@ import org.w3c.dom.Node;
  */
 public class XMLDataBuilder {
     
-    public static final String UMSNS = "https://mq.dev.java.net/ums";
+    public static final String UMSNS = "https://mq.java.net/ums";
     
     private static final String UMS_ENVELOPE = "ums";
     

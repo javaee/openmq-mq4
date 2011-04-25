@@ -415,6 +415,9 @@ public class VRFileMap extends VRFile {
      */
     public synchronized void clear(boolean truncate) throws IOException {
 
+    RandomAccessFile raf = null;
+    try {
+
 	// reset whole file
 	if (opened) {
 
@@ -435,7 +438,7 @@ public class VRFileMap extends VRFile {
 		fileSize = buf.capacity();
 
 		// truncate the file
-		RandomAccessFile raf = new RandomAccessFile(backingFile, "rw");
+		raf = new RandomAccessFile(backingFile, "rw");
 		raf.setLength(fileSize);
 	    }
 
@@ -451,16 +454,22 @@ public class VRFileMap extends VRFile {
 	    // since the file has not been opened and loaded yet,
 	    // just truncate the file if it exists
 	    if (backingFile.exists()) {
-		RandomAccessFile raf = new RandomAccessFile(backingFile, "rw");
+		raf = new RandomAccessFile(backingFile, "rw");
 		raf.setLength(0);
 
 		// bug 5042763:
 		// don't sync meta data for performance reason
 		raf.getChannel().force(false);
 
-		raf.close();
 	    }
 	}
+
+    } finally {
+    if (raf != null) {
+        raf.close();
+    }
+    }
+
     }
 
     public String toString() {

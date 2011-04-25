@@ -53,6 +53,7 @@ import java.util.Enumeration;
 import java.util.Date;
 import java.text.DateFormat;
 import javax.jms.DeliveryMode;
+import javax.jms.Message;
 
 import com.sun.messaging.jmq.admin.util.Globals;
 import com.sun.messaging.jmq.admin.util.JMSObjFactory;
@@ -63,6 +64,7 @@ import com.sun.messaging.jmq.admin.bkrutil.BrokerAdminUtil;
 import com.sun.messaging.jmq.admin.bkrutil.BrokerConstants;
 import com.sun.messaging.jmq.io.MetricCounters;
 import com.sun.messaging.jmq.io.DestMetricsCounters;
+import com.sun.messaging.jmq.io.Status;
 import com.sun.messaging.jmq.util.DestType;
 import com.sun.messaging.jmq.util.DestState;
 import com.sun.messaging.jmq.util.Password;
@@ -186,6 +188,8 @@ public class CmdRunner implements BrokerCmdOptions, BrokerConstants, AdminEventL
             exitcode = runQuiesce(brokerCmdProps);
 	} else if (cmd.equals(PROP_VALUE_CMD_TAKEOVER))  {
             exitcode = runTakeover(brokerCmdProps);
+	} else if (cmd.equals(PROP_VALUE_CMD_MIGRATESTORE))  {
+            exitcode = runMigrateStore(brokerCmdProps);
 	} else if (cmd.equals(PROP_VALUE_CMD_UNQUIESCE))  {
             exitcode = runUnquiesce(brokerCmdProps);
 	} else if (cmd.equals(PROP_VALUE_CMD_RESET))  {
@@ -729,6 +733,8 @@ public class CmdRunner implements BrokerCmdOptions, BrokerConstants, AdminEventL
 		 */
 		String value = bkrProps.getProperty(PROP_NAME_BKR_CLS_HA);
 		boolean isHA = Boolean.valueOf(value).booleanValue();
+		value = bkrProps.getProperty(PROP_NAME_BKR_CLS_REP);
+		boolean isBDBREP = Boolean.valueOf(value).booleanValue();
 
 		/*
 		 * Display cluster ID only if HA cluster
@@ -831,7 +837,35 @@ public class CmdRunner implements BrokerCmdOptions, BrokerConstants, AdminEventL
 
 			    bcp.add(row);
 		        }
-		    } else  {
+		    } else if (isBDBREP) {
+		        bcp = new BrokerCmdPrinter(3, 3, "-");
+		        row = new String[3];
+
+		        bcp.setSortNeeded(false);
+		        bcp.setTitleAlign(BrokerCmdPrinter.CENTER);
+
+		        i = 0;
+		        row[i++] = ar.getString(ar.I_JMQCMD_CLS_BROKER_ID);
+		        row[i++] = ar.getString(ar.I_JMQCMD_CLS_ADDRESS);
+		        row[i++] = ar.getString(ar.I_JMQCMD_CLS_BROKER_STATE);
+
+		        bcp.addTitle(row);
+	
+		        Enumeration thisEnum = bkrList.elements();
+		        while (thisEnum.hasMoreElements()) {
+                    Hashtable bkrClsInfo = (Hashtable)thisEnum.nextElement();
+                    i = 0;
+			        row[i++] = checkNullAndPrint( bkrClsInfo.get(BrokerClusterInfo.ID));
+                    row[i++] = checkNullAndPrint(bkrClsInfo.get(BrokerClusterInfo.ADDRESS));
+                    tmpInt = (Integer)bkrClsInfo.get(BrokerClusterInfo.STATE);
+                    if (tmpInt != null)  {
+                        row[i++] = BrokerState.toString(tmpInt.intValue());
+                    } else  {
+                        row[i++] = "";
+                    }
+                    bcp.add(row);
+		        }
+           } else {
 		        bcp = new BrokerCmdPrinter(2, 3, "-");
 		        row = new String[2];
 
@@ -5710,8 +5744,9 @@ public class CmdRunner implements BrokerCmdOptions, BrokerConstants, AdminEventL
 		/*
 		 * Check if cluster is HA or not
 		 */
-		String value = bkrProps.getProperty(PROP_NAME_BKR_CLS_HA);
-	        if (!Boolean.valueOf(value).booleanValue())  {
+		String value1 = bkrProps.getProperty(PROP_NAME_BKR_CLS_HA);
+		String value2 = bkrProps.getProperty(PROP_NAME_BKR_CLS_REP);
+	        if (!Boolean.valueOf(value1).booleanValue() && !Boolean.valueOf(value2).booleanValue())  {
                     Globals.stdErrPrintln(ar.getString(ar.E_BROKER_NOT_HA));
                     Globals.stdErrPrintln(ar.getString(ar.I_JMQCMD_TAKEOVER_BKR_FAIL));
                     return (1);
@@ -5863,6 +5898,200 @@ public class CmdRunner implements BrokerCmdOptions, BrokerConstants, AdminEventL
         return (0);
     }
 
+    private int runMigrateStore(BrokerCmdProperties brokerCmdProps) {
+        BrokerAdmin broker;
+        String input = null;
+        String yes, yesShort, no, noShort;
+
+        yes = ar.getString(ar.Q_RESPONSE_YES);
+        yesShort = ar.getString(ar.Q_RESPONSE_YES_SHORT);
+        no = ar.getString(ar.Q_RESPONSE_NO);
+        noShort = ar.getString(ar.Q_RESPONSE_NO_SHORT);
+	
+        broker = init();
+
+        boolean force = brokerCmdProps.forceModeSet();
+
+        // Check for the target argument
+        String commandArg = brokerCmdProps.getCommandArg();
+
+        if (CMDARG_BROKER.equals(commandArg)) {
+            String brokerID = brokerCmdProps.getTargetName();
+            if (broker == null)  {
+                Globals.stdErrPrintln(ar.getString(ar.I_JMQCMD_MIGRATESTORE_BKR_FAIL_NOT_MIGRATED));
+                return (1);
+            }
+            if (!force) {
+                broker = promptForAuthentication(broker);
+            }
+
+            Globals.stdOutPrintln(ar.getString(ar.I_JMQCMD_MIGRATESTORE_BKR));
+            printBrokerInfo(broker);
+            try {
+                connectToBroker(broker);
+
+            } catch (BrokerAdminException bae)  {
+                handleBrokerAdminException(bae);
+                Globals.stdErrPrintln(ar.getString(ar.I_JMQCMD_MIGRATESTORE_BKR_FAIL_NOT_MIGRATED));
+                return (1);
+            }
+            boolean isHA = false;
+            try {
+                /*
+                 * Get broker props to find out if broker is in HA/BDBREP cluster and 
+                 * broker cluster ID
+                 */
+                broker.sendGetBrokerPropsMessage();
+                Properties bkrProps = broker.receiveGetBrokerPropsReplyMessage();
+                /*
+                 * Check if cluster is HA or not
+                 */
+                String value1 = bkrProps.getProperty(PROP_NAME_BKR_CLS_HA);
+                String value2 = bkrProps.getProperty(PROP_NAME_BKR_CLS_REP);
+                isHA = Boolean.valueOf(value1).booleanValue();
+                if (!isHA && !Boolean.valueOf(value2).booleanValue())  {
+                     Globals.stdErrPrintln(ar.getString(ar.E_BROKER_NOT_HA));
+                     Globals.stdErrPrintln(ar.getString(ar.I_JMQCMD_MIGRATESTORE_BKR_FAIL_NOT_MIGRATED));
+                    return (1);
+                }
+            } catch (BrokerAdminException bae)  {
+                handleBrokerAdminException(bae);
+                Globals.stdErrPrintln(ar.getString(ar.I_JMQCMD_QUERY_BKR_FAIL));
+                Globals.stdErrPrintln(ar.getString(ar.I_JMQCMD_MIGRATESTORE_BKR_FAIL_NOT_MIGRATED));
+                return (1);
+            }
+
+            if (brokerID != null) {
+
+            Globals.stdOutPrintln(ar.getString(ar.I_JMQCMD_MIGRATESTORE_BKR_TO));
+            BrokerCmdPrinter bcp = new BrokerCmdPrinter(/*5*/4, 3, "-");
+            String[] row = new String[5];
+            bcp.setSortNeeded(false);
+            bcp.setTitleAlign(BrokerCmdPrinter.CENTER);
+            int i = 0;
+            row[i++] = "";
+            row[i++] = "";
+            row[i++] = "";
+            //row[i++] = "";
+            row[i++] = ar.getString(ar.I_JMQCMD_CLS_TIME_SINCE_TIMESTAMP1);
+            bcp.addTitle(row);
+
+            i = 0;
+            row[i++] = ar.getString(ar.I_JMQCMD_CLS_BROKER_ID);
+            row[i++] = ar.getString(ar.I_JMQCMD_CLS_ADDRESS);
+            row[i++] = ar.getString(ar.I_JMQCMD_CLS_BROKER_STATE);
+            //row[i++] = ar.getString(ar.I_JMQCMD_CLS_NUM_MSGS);
+            row[i++] = ar.getString(ar.I_JMQCMD_CLS_TIME_SINCE_TIMESTAMP2);
+            bcp.addTitle(row);
+
+            /*
+             * Get state of each broker in cluster
+             */
+            Vector bkrList = null;
+            try {
+                broker.sendGetClusterMessage(true);
+                bkrList = broker.receiveGetClusterReplyMessage();
+            } catch (BrokerAdminException bae)  {
+                 handleBrokerAdminException(bae);
+                 Globals.stdErrPrintln(ar.getString(ar.E_FAILED_TO_OBTAIN_CLUSTER_INFO));
+                 Globals.stdErrPrintln(ar.getString(ar.I_JMQCMD_MIGRATESTORE_BKR_FAIL_NOT_MIGRATED));
+                 return (1);
+            }
+            String brokerIDFromList = null;
+            boolean found = false;
+            Enumeration thisEnum = bkrList.elements();
+            while (thisEnum.hasMoreElements()) {
+                Hashtable bkrClsInfo = (Hashtable)thisEnum.nextElement();
+                Long tmpLong;
+                Integer tmpInt;
+                long idle;
+                brokerIDFromList = (String)bkrClsInfo.get(BrokerClusterInfo.ID);
+                if ((brokerIDFromList == null)) { 
+                    continue;
+                }
+                if ((!brokerIDFromList.equals(brokerID)))  {
+                    continue;
+                }
+                found = true;
+                i = 0;
+                row[i++] = checkNullAndPrint(brokerIDFromList);
+                row[i++] = checkNullAndPrint(bkrClsInfo.get(BrokerClusterInfo.ADDRESS));
+                tmpInt = (Integer)bkrClsInfo.get(BrokerClusterInfo.STATE);
+                if (tmpInt != null)  {
+                    row[i++] = BrokerState.toString(tmpInt.intValue());
+                } else  {
+                    row[i++] = "";
+                }
+                //tmpLong = (Long)bkrClsInfo.get(BrokerClusterInfo.NUM_MSGS);
+                //row[i++] = checkNullAndPrint(tmpLong);
+                tmpLong = (Long)bkrClsInfo.get(BrokerClusterInfo.STATUS_TIMESTAMP);
+                if (tmpLong != null)  {
+                    idle = System.currentTimeMillis() - tmpLong.longValue();
+                    row[i++] = CommonCmdRunnerUtil.getTimeString(idle);
+                } else  {
+                    row[i++] = "";
+                }
+                bcp.add(row);
+                break;
+            }
+            if (!found)  {
+                Globals.stdErrPrintln(ar.getString(ar.E_CANNOT_FIND_BROKERID, brokerID));
+                Globals.stdErrPrintln(ar.getString(ar.I_JMQCMD_MIGRATESTORE_BKR_FAIL_NOT_MIGRATED));
+                return (1);
+            }
+            bcp.println();
+            }
+
+            if (!force) {
+                input = CommonCmdRunnerUtil.getUserInput(ar.getString(ar.Q_MIGRATESTORE_BKR_OK), noShort);
+                Globals.stdOutPrintln("");
+            }
+            if (yesShort.equalsIgnoreCase(input) || yes.equalsIgnoreCase(input) || force) {
+                try {
+                    broker.sendMigrateStoreMessage(brokerID);
+                    String tobroker = broker.receiveMigrateStoreReplyMessage();
+                    Globals.stdOutPrintln(ar.getString(ar.I_JMQCMD_MIGRATESTORE_BKR_SUC, tobroker));
+                } catch (BrokerAdminException bae)  {
+                    handleBrokerAdminException(bae);
+                    int status = bae.getReplyStatus();
+                    Message msg = bae.getReplyMsg();
+                    String bk = null, hp = null;
+                    try {
+                        bk = msg.getStringProperty(MessageType.JMQ_BROKER_ID);
+                        hp = msg.getStringProperty(MessageType.JMQ_MQ_ADDRESS);
+                    } catch (Exception e) {}
+                    if (bk != null) {
+                        bk = bk + (hp == null ? "":"["+hp+"]");
+                    } else {
+                        bk = "";
+                    }
+                    String st = null;
+                    if (status >= 0) {
+                        st = Status.getString(status);
+                    }
+                    if (st == null) {
+                        Globals.stdErrPrintln(ar.getString(ar.I_JMQCMD_MIGRATESTORE_BKR_FAIL, bk));
+                    } else { 
+                        Globals.stdErrPrintln(ar.getString(ar.I_JMQCMD_MIGRATESTORE_BKR_FAIL_STATUS, bk, st));
+                    }
+                    return (1);
+                }
+            } else if (noShort.equalsIgnoreCase(input) || no.equalsIgnoreCase(input)) {
+                Globals.stdOutPrintln(ar.getString(ar.I_JMQCMD_MIGRATESTORE_BKR_NOOP));
+                return (0);
+            } else {
+                Globals.stdOutPrintln(ar.getString(ar.I_UNRECOGNIZED_RES, input));
+                Globals.stdOutPrintln("");
+                Globals.stdOutPrintln(ar.getString(ar.I_JMQCMD_MIGRATESTORE_BKR_NOOP));
+                return (1);
+            }
+	    }
+
+        /** broker will shutdown itself
+         * broker.close();
+         */
+        return (0);
+    }
 
 
     private int runExists(BrokerCmdProperties brokerCmdProps) {

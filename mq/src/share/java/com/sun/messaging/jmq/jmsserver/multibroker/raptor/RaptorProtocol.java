@@ -54,6 +54,7 @@ import com.sun.messaging.jmq.util.log.*;
 import com.sun.messaging.jmq.io.*;
 import com.sun.messaging.jmq.util.*;
 import com.sun.messaging.jmq.util.selector.*;
+import com.sun.messaging.jmq.util.admin.MessageType;
 import com.sun.messaging.jmq.jmsserver.FaultInjection;
 import com.sun.messaging.jmq.jmsserver.BrokerStateHandler;
 import com.sun.messaging.jmq.jmsserver.core.*;
@@ -67,6 +68,7 @@ import com.sun.messaging.jmq.jmsserver.data.TransactionBroker;
 import com.sun.messaging.jmq.jmsserver.persist.Store;
 import com.sun.messaging.jmq.jmsserver.cluster.*;
 import com.sun.messaging.jmq.jmsserver.cluster.ha.*;
+import com.sun.messaging.jmq.jmsserver.data.handlers.admin.ExclusiveRequest;
 import com.sun.messaging.jmq.jmsserver.service.ConnectionUID;
 import com.sun.messaging.jmq.jmsserver.service.ServiceRestriction;
 import com.sun.messaging.jmq.jmsserver.service.HAMonitorService;
@@ -162,19 +164,20 @@ public class RaptorProtocol implements Protocol
     private FaultInjection fi = null;
     private HashMap ackCounts = new HashMap(); //for msg remote ack fi 
 
-    private static final int DEFAULT_CHANGE_MASTER_WAIT_TIMEOUT = 180;
+    private static final int DEFAULT_WAIT_REPLY_TIMEOUT = 180; //secs
+    protected int clusterWaitReplyTimeout = Globals.getConfig().getIntProperty(
+                   Globals.IMQ + ".cluster.waitReplyTimeout", DEFAULT_WAIT_REPLY_TIMEOUT);
+
     protected int changeMasterBrokerWaitTimeout = Globals.getConfig().getIntProperty(
                    Globals.IMQ + ".cluster.changeMasterBrokerWaitTimeout",
-                   DEFAULT_CHANGE_MASTER_WAIT_TIMEOUT);
-    protected int changeMasterBrokerWaitTimeout1 = Globals.getConfig().getIntProperty(
-                   Globals.IMQ + ".cluster.changeMasterBrokerWaitTimeout1",
-                   DEFAULT_CHANGE_MASTER_WAIT_TIMEOUT/3);
+                   DEFAULT_WAIT_REPLY_TIMEOUT);
 
     private Object masterBrokerBlockedLock = new Object();
     private Object configOpLock = new Object();
     private int configOpInProgressCount = 0;
     private boolean masterBrokerBlocked = false;
     private ReplyTracker newMasterBrokerReplyTracker = null;
+    private ReplyTracker takeoverMEReplyTracker = null;
 
     private Object newMasterBrokerLock = new Object();
     private String newMasterBrokerPreparedUUID = null; 
@@ -221,6 +224,7 @@ public class RaptorProtocol implements Protocol
 
         ackackTracker = new ReplyTracker();
         newMasterBrokerReplyTracker = new ReplyTracker();
+        takeoverMEReplyTracker = new ReplyTracker();
         takeoverPendingReplyTracker = new ReplyTracker();
         fi = FaultInjection.getInjection();
     }
@@ -334,6 +338,15 @@ public class RaptorProtocol implements Protocol
         addHandler(ProtocolGlobals.G_NEW_MASTER_BROKER_PREPARE_REPLY, h);
         addHandler(ProtocolGlobals.G_NEW_MASTER_BROKER, h);
         addHandler(ProtocolGlobals.G_NEW_MASTER_BROKER_REPLY, h);
+
+        h = new ReplicationGroupInfoHandler(this);
+        addHandler(ProtocolGlobals.G_REPLICATION_GROUP_INFO, h);
+
+        h = new TakeoverMEHandler(this);
+        addHandler(ProtocolGlobals.G_TAKEOVER_ME_PREPARE, h);
+        addHandler(ProtocolGlobals.G_TAKEOVER_ME_PREPARE_REPLY, h);
+        addHandler(ProtocolGlobals.G_TAKEOVER_ME, h);
+        addHandler(ProtocolGlobals.G_TAKEOVER_ME_REPLY, h);
 
         unknownPacketHandler = new UnknownPacketHandler(this);
     }
@@ -693,15 +706,19 @@ public class RaptorProtocol implements Protocol
         }
     }
 
-    public void stopClusterIO(boolean requestTakeover) {
+    public void stopClusterIO(boolean requestTakeover, boolean force,
+                               BrokerAddress excludedBroker) {
         if (DEBUG) logger.log(logger.DEBUG, "RaptorProtocol.shutdown");
 
-        synchronized(brokerList) {
-            shutdown = true;
-        }
+        if (excludedBroker == null) {
+            synchronized(brokerList) {
+                shutdown = true;
+            }
+        
 
-        synchronized(configOpLock) {
-            configOpLock.notifyAll();
+            synchronized(configOpLock) {
+                configOpLock.notifyAll();
+            }
         }
 
         cbDispatcher.shutdown();
@@ -728,6 +745,9 @@ public class RaptorProtocol implements Protocol
             while(itr.hasNext()) {
                 be = (BrokerInfoEx)itr.next();
                 ba = be.getBrokerInfo().getBrokerAddr();
+                if (excludedBroker != null && ba.equals(excludedBroker)) {
+                    continue;
+                }
                 gp = cgi.getGPacket();
                 try {
                     logger.log(logger.INFO, br.getKString(
@@ -805,7 +825,9 @@ public class RaptorProtocol implements Protocol
     }
 
     public BrokerAddress lookupBrokerAddress(String brokerid) {
-        if (!Globals.getHAEnabled()) return null;
+        if (!Globals.getHAEnabled() && !Globals.getBDBREPEnabled()) {
+            return null;
+        }
 
         synchronized(brokerList) {
             Iterator itr = brokerList.keySet().iterator();
@@ -820,7 +842,7 @@ public class RaptorProtocol implements Protocol
         }
     }
 
-    private BrokerAddress lookupBrokerAddress(BrokerMQAddress url) {
+    public BrokerAddress lookupBrokerAddress(BrokerMQAddress url) {
 
         synchronized(brokerList) {
             Iterator itr = brokerList.keySet().iterator();
@@ -1493,6 +1515,259 @@ public class RaptorProtocol implements Protocol
         }
     }
 
+    private void sendMyReplicationGroupInfo(BrokerAddress to) {
+        if (store.closed()) {
+            return;
+        }
+        MQAddress backup = Globals.getClusterManager().getBrokerNextToMe();
+        if (backup == null || !backup.equals(to.getMQAddress())) {
+            return;
+        }
+        try {
+            ClusterReplicationGroupInfo rgi = ClusterReplicationGroupInfo.
+                 newInstance(store.getMyReplicationGroupName(),
+                             store.getMyReplicationNodeName(),
+                             store.getMyReplicationHostPort(),
+                             store.getMyReplicaPort(to.getBrokerID(), to.getMQAddress(), true), c);
+            GPacket gp = rgi.getGPacket();
+            logger.log(logger.INFO, br.getKString(br.I_CLUSTER_UNICAST,  
+                       ProtocolGlobals.getPacketTypeDisplayString(gp.getType())+
+                       "["+rgi+"]", to));
+                 c.unicast(to, gp);
+        } catch (Exception e) {
+            if (e instanceof BrokerException &&
+                ((BrokerException)e).getStatusCode() ==  Status.NOT_ALLOWED) {
+                logger.log(logger.WARNING, br.getKString(br.W_CLUSTER_UNICAST_FAILED,
+                    ProtocolGlobals.getPacketTypeDisplayString(
+                    ProtocolGlobals.G_REPLICATION_GROUP_INFO), to)+":"+e.getMessage());
+            } else {
+                logger.logStack(logger.WARNING, br.getKString(br.W_CLUSTER_UNICAST_FAILED,
+                    ProtocolGlobals.getPacketTypeDisplayString(
+                    ProtocolGlobals.G_REPLICATION_GROUP_INFO), to), e);
+            }
+        }
+    }
+
+    public void receivedReplicationGroupInfo(GPacket pkt, BrokerAddress from)
+    throws Exception { 
+        ClusterReplicationGroupInfo rgi = ClusterReplicationGroupInfo.newInstance(pkt, c);
+        logger.log(logger.INFO, "Received replication group info:"+rgi+" from "+from);
+        BrokerAddress owner = rgi.getOwnerAddress();
+        if (!Globals.getBDBREPEnabled() || !owner.equals(from) || 
+             !rgi.getClusterID().equals(Globals.getClusterID())) {
+
+            logger.log(logger.ERROR, "Received unexpected packet "+
+                ProtocolGlobals.getPacketTypeDisplayString(
+                ProtocolGlobals.G_REPLICATION_GROUP_INFO)+"["+rgi+"], from "+from);
+            return;
+        }
+
+        store.joinReplicationGroup(rgi.getGroupName(), rgi.getNodeName(), 
+                                   rgi.getMasterHostPort(), rgi.getReplicaPort(),
+                                   (byte[])null, (Long)null,
+                                   false, rgi.getOwnerAddress(), rgi);
+    }
+
+    public String sendTakeoverMEPrepare(String brokerID,
+                   byte[] commitToken, Long syncTimeout, String uuid)
+                   throws BrokerException {
+
+        BrokerAddress addr = lookupBrokerAddress(brokerID);
+        if (addr == null) {
+            throw new BrokerException("Broker not connected "+brokerID);
+        }
+        BrokerAddress master = c.getConfigServer();
+        if (master != null && selfAddress.equals(master)) {
+            throw new BrokerException(
+                br.getKString(br.E_CHANGE_MASTER_BROKER_FIRST,
+                MessageType.getString(MessageType.MIGRATESTORE_BROKER)),
+               Status.NOT_ALLOWED);
+        }
+        Long xid =  takeoverMEReplyTracker.addWaiter(
+                        new UnicastReplyWaiter(addr,
+                            ProtocolGlobals.G_TAKEOVER_ME_PREPARE_REPLY));
+        try {
+            ClusterTakeoverMEPrepareInfo tme = ClusterTakeoverMEPrepareInfo.
+                                newInstance(store.getMyReplicationGroupName(),
+                                store.getMyReplicationNodeName(),
+                                store.getMyReplicationHostPort(), 
+                                store.getMyReplicaPort(brokerID, addr.getMQAddress(), false),
+                                commitToken, syncTimeout, brokerID, uuid, xid, c);
+            try {
+                GPacket gp = tme.getGPacket();
+                logger.log(logger.INFO, br.getKString(br.I_CLUSTER_UNICAST,  
+                           ProtocolGlobals.getPacketTypeDisplayString(gp.getType())+
+                           "["+tme+"]", addr));
+                c.unicast(addr, gp);
+            } catch (Exception e) { 
+                String emsg = br.getKString(br.W_CLUSTER_UNICAST_FAILED,
+                              ProtocolGlobals.getPacketTypeDisplayString(
+                              ProtocolGlobals.G_TAKEOVER_ME_PREPARE)+tme, addr);
+                logger.log(logger.ERROR, emsg);
+                throw new BrokerException(emsg);
+            }
+
+            int timeout = (syncTimeout == null ? (int)store.getDefaultReplicaSyncTimeout():
+                           (int)syncTimeout.longValue()+clusterWaitReplyTimeout); 
+            ReplyStatus reply = null;
+            try {
+                reply = takeoverMEReplyTracker.waitForReply(xid, timeout);
+            } catch (BrokerException e) {
+                BrokerException e1 = e;
+                if (e.getStatusCode() == Status.GONE) {
+                    e1 = new BrokerException(br.getKString(
+                        br.X_CLUSTER_BROKER_LINK_DOWN, addr.toString()), Status.GONE);
+                } else if (e.getStatusCode() == Status.TIMEOUT) {
+                    String[]  args = new String[]{ 
+                        String.valueOf(timeout),
+                        ProtocolGlobals.getPacketTypeDisplayString(
+                        ProtocolGlobals.G_TAKEOVER_ME_PREPARE_REPLY),
+                        addr.toString() };
+                    e1 = new BrokerException(br.getKString(
+                        br.X_CLUSTER_WAIT_REPLY_TIMEOUT, args), Status.TIMEOUT);
+                }
+                throw e1;
+            }
+            if (reply.getStatus() != Status.OK) {
+                String[] args = new String[]{ reply.getReason(),
+                                    ProtocolGlobals.getPacketTypeDisplayString(
+                                    ProtocolGlobals.G_TAKEOVER_ME_PREPARE),
+                                    addr.toString() };
+                String emsg = br.getKString(br.E_CLUSTER_RECEIVED_ERROR_REPLY_FROM_BROKER, args);
+                throw new BrokerException(emsg, reply.getStatus());
+            }
+            return tme.getReplyReplicaHostPort(reply.getReply());
+
+        } finally {
+            takeoverMEReplyTracker.removeWaiter(xid);
+        }
+    }
+
+    public void receivedTakeoverMEPrepare(BrokerAddress sender,
+                GPacket pkt, ClusterTakeoverMEPrepareInfo tme)
+                throws Exception {
+
+        BrokerStateHandler.setExclusiveRequestLock(ExclusiveRequest.MIGRATE_STORE);
+        try {
+        String[] args = new String[]{ 
+            ProtocolGlobals.getPacketTypeDisplayString(pkt.getType()),
+                                  tme.toString(), sender.toString() }; 
+        logger.log(logger.INFO, br.getKString(br.I_CLUSTER_RECEIVE, args));
+
+        store.joinReplicationGroup(tme.getGroupName(), tme.getNodeName(),
+                                   tme.getMasterHostPort(), tme.getReplicaPort(),
+                                   tme.getCommitToken(), tme.getSyncTimeout(),
+                                   true, tme.getOwnerAddress(), tme);
+        } finally {
+        BrokerStateHandler.unsetExclusiveRequestLock(ExclusiveRequest.MIGRATE_STORE);
+        }
+
+    }
+
+    public void receivedTakeoverMEPrepareReply(BrokerAddress sender, GPacket pkt) {
+        Long xid = ClusterTakeoverMEPrepareInfo.getReplyPacketXid(pkt);
+
+        if (!takeoverMEReplyTracker.notifyReply(xid, sender, pkt)) {
+            Object[] args = new Object[]{
+                            ProtocolGlobals.getPacketTypeDisplayString(
+                            ProtocolGlobals.G_TAKEOVER_ME_PREPARE_REPLY),
+                            xid.toString(), sender };
+            logger.log(logger.WARNING, br.getKString(br.W_CLUSTER_UNABLE_NOTIFY_REPLY, args));
+        }
+    }
+
+    public String sendTakeoverME(String brokerID, String uuid)
+    throws BrokerException {
+        if (DEBUG) {
+            logger.log(logger.INFO, "RaptorProtocol.sendTakeoverME, to " + brokerID); 
+        }
+        BrokerAddress addr = lookupBrokerAddress(brokerID);
+        if (addr == null) {
+            throw new BrokerException("Broker not connected "+brokerID);
+        }
+
+        Long xid =  takeoverMEReplyTracker.addWaiter(
+                        new UnicastReplyWaiter(addr,
+                            ProtocolGlobals.G_TAKEOVER_ME_REPLY));
+        try {
+
+            ClusterTakeoverMEInfo tme = ClusterTakeoverMEInfo.
+                                newInstance(store.getMyReplicationGroupName(),
+                                store.getMyReplicationNodeName(),
+                                store.getMyReplicationHostPort(),
+                                brokerID, uuid, xid, c);
+            try {
+                GPacket gp = tme.getGPacket();
+                logger.log(logger.INFO, br.getKString(br.I_CLUSTER_UNICAST,
+                           ProtocolGlobals.getPacketTypeDisplayString(gp.getType())+
+                           "["+tme+"]", addr.toString()));
+                c.unicast(addr, gp);
+            } catch (Exception e) { 
+                String emsg = br.getKString(br.W_CLUSTER_UNICAST_FAILED,
+                                 ProtocolGlobals.getPacketTypeDisplayString(
+                                 ProtocolGlobals.G_TAKEOVER_ME)+tme, addr);
+                logger.log(logger.ERROR, emsg);
+                throw new BrokerException(emsg);
+            }
+
+            ReplyStatus reply = null;
+            try {
+                reply = takeoverMEReplyTracker.waitForReply(xid, clusterWaitReplyTimeout);
+            } catch (BrokerException e) {
+                BrokerException e1 = e;
+                if (e.getStatusCode() == Status.GONE) {
+                    e1 = new BrokerException(br.getKString(
+                        br.X_CLUSTER_BROKER_LINK_DOWN, addr.toString()), Status.GONE);
+                } else if (e.getStatusCode() == Status.TIMEOUT) {
+                    String[]  args = new String[]{
+                        String.valueOf(clusterWaitReplyTimeout),
+                        ProtocolGlobals.getPacketTypeDisplayString(
+                        ProtocolGlobals.G_TAKEOVER_ME_REPLY),
+                        addr.toString() };
+                    e1 = new BrokerException(br.getKString(
+                        br.X_CLUSTER_WAIT_REPLY_TIMEOUT, args), Status.TIMEOUT);
+                }
+                throw e1;
+            }
+            if (reply.getStatus() != Status.OK) {
+                String[] args = new String[]{ reply.getReason(),
+                                    ProtocolGlobals.getPacketTypeDisplayString(
+                                    ProtocolGlobals.G_TAKEOVER_ME),
+                                    addr.toString() };
+                String emsg = br.getKString(br.E_CLUSTER_RECEIVED_ERROR_REPLY_FROM_BROKER, args);
+                throw new BrokerException(emsg, reply.getStatus());
+            }
+
+        } finally {
+            takeoverMEReplyTracker.removeWaiter(xid);
+        }
+        return addr.getMQAddress().getHostAddressNPort();
+    }
+
+    public void receivedTakeoverME(BrokerAddress sender,
+                GPacket pkt, ClusterTakeoverMEInfo tme)
+                throws Exception {
+
+        String[] args = new String[]{ 
+            ProtocolGlobals.getPacketTypeDisplayString(pkt.getType()),
+                                  tme.toString(), sender.toString() }; 
+        logger.log(logger.INFO, br.getKString(br.I_CLUSTER_RECEIVE, args));
+
+        store.initTakeoverBrokerStore(tme.getGroupName(), tme.getNodeName(),
+                     tme.getMasterHostPort(), tme.getOwnerAddress(), tme);
+    }
+
+    public void receivedTakeoverMEReply(BrokerAddress sender, GPacket pkt) {
+        Long xid = ClusterTakeoverMEInfo.getReplyPacketXid(pkt);
+
+        if (!takeoverMEReplyTracker.notifyReply(xid, sender, pkt)) {
+            Object[] args = new Object[]{
+                            ProtocolGlobals.getPacketTypeDisplayString(
+                            ProtocolGlobals.G_TAKEOVER_ME_REPLY),
+                            xid.toString(), sender };
+            logger.log(logger.WARNING, br.getKString(br.W_CLUSTER_UNABLE_NOTIFY_REPLY, args));
+        }
+    }
 
     private String sendNewMasterBrokerPrepareAndWaitReply(BrokerAddress newmaster)
     throws Exception {
@@ -1524,7 +1799,7 @@ public class RaptorProtocol implements Protocol
         }
 
         Long xid =  newMasterBrokerReplyTracker.addWaiter(
-                        new NewMasterBrokerReplyWaiter(newmaster,
+                        new UnicastReplyWaiter(newmaster,
                             ProtocolGlobals.G_NEW_MASTER_BROKER_PREPARE_REPLY));
         try {
             ClusterNewMasterBrokerPrepareInfo nmpi = ClusterNewMasterBrokerPrepareInfo.
@@ -1581,7 +1856,9 @@ public class RaptorProtocol implements Protocol
                 br.X_CLUSTER_NO_SUPPORT_CHANGE_MASTER_BROKER_CMDLINE,
                 ClusterManagerImpl.CONFIG_SERVER));
         }
- 
+
+        BrokerStateHandler.setExclusiveRequestLock(ExclusiveRequest.CHANGE_MASTER_BROKER);
+        try {
         synchronized(newMasterBrokerLock) {
 
         ClusterNewMasterBrokerPrepareInfo nmpi = 
@@ -1653,6 +1930,10 @@ public class RaptorProtocol implements Protocol
         newMasterBrokerPreparedUUID = nmpi.getUUID();
         newMasterBrokerPreparedSender = sender;
         }
+
+        } finally {
+        BrokerStateHandler.unsetExclusiveRequestLock(ExclusiveRequest.CHANGE_MASTER_BROKER);
+        }
     }
 
     public void receivedNewMasterBrokerPrepareReply(BrokerAddress sender, GPacket pkt) {
@@ -1689,7 +1970,7 @@ public class RaptorProtocol implements Protocol
         }
 
         Long xid =  newMasterBrokerReplyTracker.addWaiter(
-                        new NewMasterBrokerReplyWaiter(to,
+                        new UnicastReplyWaiter(to,
                             ProtocolGlobals.G_NEW_MASTER_BROKER_REPLY));
         boolean noremove = false;
         try {
@@ -1793,7 +2074,7 @@ public class RaptorProtocol implements Protocol
 
         ReplyStatus reply = null;
         try {
-             reply = newMasterBrokerReplyTracker.waitForReply(xid, changeMasterBrokerWaitTimeout1); 
+             reply = newMasterBrokerReplyTracker.waitForReply(xid, clusterWaitReplyTimeout); 
         } catch (BrokerException e) {
              BrokerException e1 = e;
              if (e.getStatusCode() == Status.GONE) {
@@ -1848,7 +2129,7 @@ public class RaptorProtocol implements Protocol
                  xid = (Long)itr.next();
                  try {
                      waitNewMasterBrokerReply(xid, newmaster,
-                         ((NewMasterBrokerReplyWaiter)
+                         ((UnicastReplyWaiter)
                          newMasterBrokerReplyTracker.getWaiter(xid)).getToBroker());
                  } catch (Exception e) {
                      logger.logStack(logger.WARNING, e.getMessage(), e);
@@ -3750,7 +4031,7 @@ public class RaptorProtocol implements Protocol
                 Globals.getClusterManager().activateBroker(
                        brokerInfo.getBrokerAddr().getMQAddress(), 
                        brokerInfo.getBrokerAddr().getBrokerSessionUID(),
-                       brokerInfo.getBrokerAddr().getInstanceName(), null);
+                       brokerInfo.getBrokerAddr().getInstanceName(), brokerInfo);
             }
             } catch (Exception e) {
                logger.logStack(Logger.ERROR, br.getKString(
@@ -3772,7 +4053,9 @@ public class RaptorProtocol implements Protocol
             forwardLocalInterests(brokerInfo.getBrokerAddr());
             sendTransactionInquiries(brokerInfo.getBrokerAddr());
             restartElections(brokerInfo.getBrokerAddr());
-
+            if (Globals.getBDBREPEnabled()) {
+                sendMyReplicationGroupInfo(brokerInfo.getBrokerAddr());
+            }
             logger.log(Logger.FORCE, br.I_MBUS_ADD_BROKER, 
                        brokerInfo.getBrokerAddr().toString()+
                        (brokerInfo.getRealRemoteString() == null ? "":
@@ -4943,11 +5226,11 @@ class MessageAckReplyWaiter extends ReplyWaiter {
     }
 }
 
-class NewMasterBrokerReplyWaiter extends ReplyWaiter {
+class UnicastReplyWaiter extends ReplyWaiter {
 
     private BrokerAddress toBroker;
 
-    public NewMasterBrokerReplyWaiter(BrokerAddress to, short replyType) {
+    public UnicastReplyWaiter(BrokerAddress to, short replyType) {
         super(to, replyType);
         this.toBroker = to;
     }

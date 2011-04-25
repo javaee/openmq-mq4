@@ -137,7 +137,15 @@ public class ProtocolGlobals {
     public static final short G_NEW_MASTER_BROKER           = 53;
     public static final short G_NEW_MASTER_BROKER_REPLY     = 54;
 
-    public static final short G_MAX_PACKET_TYPE             = 54;
+    public static final short G_REPLICATION_GROUP_INFO     = 55;
+
+    public static final short G_TAKEOVER_ME_PREPARE     = 57;
+    public static final short G_TAKEOVER_ME_PREPARE_REPLY     = 58;
+
+    public static final short G_TAKEOVER_ME           = 59;
+    public static final short G_TAKEOVER_ME_REPLY     = 60;
+
+    public static final short G_MAX_PACKET_TYPE       = 60;
 
 
     public static final String[] packetTypeNames = {
@@ -205,6 +213,15 @@ public class ProtocolGlobals {
 
     "G_NEW_MASTER_BROKER",                 /* = 53 */
     "G_NEW_MASTER_BROKER_REPLY",           /* = 54 */
+
+    "G_REPLICATION_GROUP_INFO",           /* = 55 */
+    "UNKNOWN",                            /* = 56 */
+
+    "G_TAKEOVER_ME_PREPARE",         /* = 57 */
+    "G_TAKEOVER_ME_PREPARE_REPLY",   /* = 58 */
+
+    "G_TAKEOVER_ME",         /* = 59 */
+    "G_TAKEOVER_ME_REPLY",   /* = 60 */
 
     };
 

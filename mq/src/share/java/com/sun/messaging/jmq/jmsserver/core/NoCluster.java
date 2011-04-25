@@ -151,7 +151,8 @@ public class NoCluster implements ClusterBroadcast {
     {
     }
 
-    public void stopClusterIO(boolean requestTakeover) {
+    public void stopClusterIO(boolean requestTakeover, boolean force,
+                              BrokerAddress excludedBroker) {
     }
 
     /**
@@ -337,11 +338,27 @@ public class NoCluster implements ClusterBroadcast {
         return null;
     };
 
+    public BrokerAddress lookupBrokerAddress(BrokerMQAddress mqaddr) {
+        return null;
+    };
+
     /**
      * Change master broker
      */
     public void changeMasterBroker(BrokerMQAddress newmaster, BrokerMQAddress oldmaster)
     throws BrokerException {
+        throw new BrokerException("Not Supported");
+    }
+
+    public String sendTakeoverMEPrepare(String brokerID, byte[] token,
+                                        Long syncTimeout, String uuid)
+                                        throws BrokerException {
+        throw new BrokerException("Not Supported");
+    }
+
+    public String sendTakeoverME(String brokerID, String uuid)
+    throws BrokerException {
+        throw new BrokerException("Not Supported");
     }
 
 }

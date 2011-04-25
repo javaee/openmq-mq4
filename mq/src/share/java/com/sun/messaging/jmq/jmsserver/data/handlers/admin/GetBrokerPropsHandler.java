@@ -67,6 +67,7 @@ import com.sun.messaging.jmq.jmsserver.Broker;
 import com.sun.messaging.jmq.jmsserver.config.*;
 import com.sun.messaging.jmq.jmsserver.license.*;
 import com.sun.messaging.jmq.jmsserver.persist.sharecc.ShareConfigChangeStore;
+import com.sun.messaging.jmq.jmsserver.persist.StoreManager;
 import com.sun.messaging.jmq.jmsserver.util.BrokerException;
 
 public class GetBrokerPropsHandler extends AdminCmdHandler
@@ -132,11 +133,15 @@ public class GetBrokerPropsHandler extends AdminCmdHandler
         }
 
 
-        if (Globals.getBrokerID() != null)
+        if (Globals.getBrokerID() != null && !Globals.getBDBREPEnabled()) {
             brokerProps.put(Globals.IMQ + ".brokerid", Globals.getBrokerID());
-        if (Globals.getClusterID() != null)
-            brokerProps.put(Globals.IMQ + ".cluster.clusterid",
-                    Globals.getClusterID());
+        }
+        if (Globals.getClusterID() != null) {
+            brokerProps.put(Globals.IMQ + ".cluster.clusterid", Globals.getClusterID());
+        }
+        if (Globals.getBDBREPEnabled()) {
+            brokerProps.put(StoreManager.BDB_REPLICATION_ENABLED_PROP, "true");
+        }
 
         brokerProps.put(Globals.IMQ + ".embedded", Boolean.toString(Broker.isInProcess()));
 

@@ -3470,10 +3470,14 @@ public class SessionImpl implements Traceable {
             ht.put("Producer[" + i + "]",
                 _producers[i].getDebugState(verbose));
         }
-
-        if (verbose)
-            ht.put("unacked", unAckedMessageQueue);
-
+        ht.put("unAckedMessageQueueSize", unAckedMessageQueue.size());
+        if (verbose) {
+            ht.put("unAckedMessageQueue", unAckedMessageQueue);
+        }
+        SessionQueue ssq = sessionQueue;
+        if (ssq != null) {
+            ht.put("sessionQueue", ssq.getDebugState(verbose));
+        }
         ConnectionConsumerImpl cc = connectionConsumer;
         if (cc != null) {
             ht.put("connectionConsumer", cc.getDebugState(verbose));

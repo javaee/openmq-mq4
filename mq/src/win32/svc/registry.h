@@ -49,8 +49,8 @@
 #define JVMARGS_KEY     "JVMArgs"
 #define SERVICEARGS_KEY "ServiceArgs"
 /* ####jes-windev#### start ## changing the SERVICE_NAME from iMQ_Broker to MQ_Broker and DISPLAY_NAME from iMQ Broker to Message Queue Broker */ 
-#define SERVICE_NAME                "MQ4.5_Broker"
-#define DISPLAY_NAME                "Message Queue 4.5 Broker"
+#define SERVICE_NAME                "MQ4.6_Broker"
+#define DISPLAY_NAME                "Message Queue 4.6 Broker"
 /* ####jes-windev#### end */
 #define PARAM_KEY_PATH  "SYSTEM\\CurrentControlSet\\Services\\" SERVICE_NAME "\\Parameters"
 
