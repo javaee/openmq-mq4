@@ -863,6 +863,9 @@ public class BrokerResources extends MQResourceBundle {
     final public static String W_UNABLE_CLEANUP_REMOTE_MSG_ON_ROUTE = "B2245";
     final public static String W_DB_POOL_CLOSING = "B2246";
     final public static String W_DB_POOL_POLL_TIMEOUT = "B2247";
+    final public static String W_UNABLE_DELETE_FILE_IN_DIR = "B2248";
+    final public static String W_UNABLE_RENAME_FILE = "B2249";
+
 
     // 3000-3999 Error Messages
     final public static String E_PERSISTENT_OPEN 	= "B3000";
@@ -1525,6 +1528,7 @@ public class BrokerResources extends MQResourceBundle {
     final public static String X_INVALID_MAX_PRODUCER_COUNT = "B4359";
     final public static String X_SESSION_CLOSED = "B4360";
     final public static String X_UNABLE_PROCESS_MESSAGE_ACK = "B4361";
+    final public static String X_COULD_NOT_DELETE_FILE = "B4362";
 
     /***************** End of message key constants *******************/
 

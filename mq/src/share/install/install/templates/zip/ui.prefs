@@ -1,7 +1,7 @@
 #
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
 #
-# Copyright (c) 2000-2010 Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2000-2011 Oracle and/or its affiliates. All rights reserved.
 #
 # The contents of this file are subject to the terms of either the GNU
 # General Public License Version 2 only ("GPL") or the Common Development
@@ -42,7 +42,7 @@
 # Fragments line ${varname} are replaced by FreeMarker templating mechanism from other properties
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ COMMON STUFF ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-PRODUCT_NAME=Open Message Queue 4.5
+PRODUCT_NAME=Open Message Queue 4.5.1
 
 app_title=${PRODUCT_NAME}
 
@@ -65,7 +65,7 @@ RegistrationWelcome_WELCOME_TEXT=${BODY_START}\
            ${Copyright_HTML_FRAGMENT}\
            ${BODY_END}
 
-Copyright_HTML_FRAGMENT=Copyright (c) 2010, Oracle and/or its affiliates.  All rights reserved.
+Copyright_HTML_FRAGMENT=Copyright (c) 2011, Oracle and/or its affiliates.  All rights reserved.
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~L I C E N S E   P A G E~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

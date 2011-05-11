@@ -66,7 +66,6 @@ import javax.transaction.xa.XAResource;
 import com.sun.messaging.ConnectionConfiguration;
 import com.sun.messaging.jmq.Version;
 import com.sun.messaging.jmq.jmsclient.XAConnectionImpl;
-import com.sun.messaging.jmq.jmsserver.Globals;
 import com.sun.messaging.jmq.jmsservice.JMSService;
 import com.sun.messaging.jmq.util.service.PortMapperClientHandler;
 import com.sun.messaging.jms.blc.LifecycleManagedBroker;
@@ -281,11 +280,13 @@ public class ResourceAdapter implements javax.resource.spi.ResourceAdapter,
 	 */
 	private static final String FIX_CR6760301 = "true";	
 
-	/*
-	 * * The Group Name assigned to this Resource Adapter.* Supports deployment
-	 * scenarios where multiple instances of a group* are acting as a single
-	 * logical unit for JMS semantics.* All ResourceAdapter instances in the
+	/**
+	 * The Group Name assigned to this Resource Adapter..
+	 * This supports deployment scenarios where multiple instances of a group are acting as a single
+	 * logical unit for JMS semantics. All ResourceAdapter instances in the
 	 * group must have the same Group Name.
+     *
+     * (For info) In GlassFish 3.1 this will be set to <domainName>#<clusterName> 
 	 */
 	private String groupName = null;
 
@@ -353,7 +354,9 @@ public class ResourceAdapter implements javax.resource.spi.ResourceAdapter,
 		} else {
 			fixBrokerType();
 			
-			_loggerL.info(_lgrMID_INF + "GlassFish MQ JMS Resource Adapter: "+Globals.getVersion().getRAVersion());
+			
+			Version version = new Version();
+			_loggerL.info(_lgrMID_INF + "GlassFish MQ JMS Resource Adapter: "+version.getRAVersion());
 			_loggerL.info(_lgrMID_INF + "GlassFish MQ JMS Resource Adapter starting: broker is " + getPublicBrokerType()+ ", connection mode is " + getPublicConnectionType());
 			this.b_context = ctx;
 
