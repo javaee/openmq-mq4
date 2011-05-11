@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2000-2011 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000-2010 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -52,9 +52,9 @@
 
 #define MQ_NAME    "Oracle GlassFish(tm) Server Message Queue"
 
-#define MQ_VERSION "4.6"
+#define MQ_VERSION "4.5"
 #define MQ_VMAJOR   4
-#define MQ_VMINOR   6
+#define MQ_VMINOR   5
 #define MQ_VMICRO   0 
 #define MQ_SVCPACK  0
 #define MQ_URELEASE 0

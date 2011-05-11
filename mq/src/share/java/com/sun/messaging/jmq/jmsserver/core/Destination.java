@@ -1350,7 +1350,7 @@ protected String INITIALIZEBY = "";
           }
         } catch (Exception ex) {
             logger.logStack(Logger.INFO,
-            br.getKString(br.E_GET_MSG_METRICS_FROM_STORE_FAIL, this), ex);
+                BrokerResources.E_INTERNAL_ERROR, ex);
         }
         dest_inited = true;
     }

@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2000-2011 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000-2010 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -59,7 +59,7 @@ public interface Consumer {
      *
      *  @param  msgPkt The MJMSPacketto be processed
      *
-     *  @return The JMSAck if the delivered message is to be acknowledged
+     *  @return The JMSAck if the delivered message is to be acknowleged
      *          upon returning from this method.<br>
      *          If this is {@code null} then the message will be acknowledged
      *          separately.

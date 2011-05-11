@@ -3,7 +3,7 @@
 
     DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
 
-    Copyright (c) 2000-2011 Oracle and/or its affiliates. All rights reserved.
+    Copyright (c) 2000-2010 Oracle and/or its affiliates. All rights reserved.
 
     The contents of this file are subject to the terms of either the GNU
     General Public License Version 2 only ("GPL") or the Common Development
@@ -50,7 +50,7 @@ onent.xsd">
     <Identifier feature="true">mq</Identifier>
     <Description>Oracle GlassFish(tm) Server Message Queue</Description>
     <IdentityVersion>
-      <VersionBaseline>4.6.0.0</VersionBaseline>
+      <VersionBaseline>4.5.0.0</VersionBaseline>
     </IdentityVersion>
     <Vendor>Oracle</Vendor>
     <Other>Java Enterprise System</Other>
@@ -94,7 +94,7 @@ onent.xsd">
       <Name>core</Name>
 
       <!-- Solaris sparc and sparcv9 -->
-      <Realization version="4.6.0.0">
+      <Realization version="4.5.0.0">
         <OS>
           <Type>unix</Type>
           <Name>SunOS</Name>
@@ -121,7 +121,7 @@ onent.xsd">
       </Realization>
 
       <!-- Solaris x86 and x86_64 -->
-      <Realization version="4.6.0.0">
+      <Realization version="4.5.0.0">
         <OS>
           <Type>unix</Type>
           <Name>SunOS</Name>
@@ -148,7 +148,7 @@ onent.xsd">
       </Realization>
 
       <!-- Linux x86 and x86_64 -->
-      <Realization version="4.6-1">
+      <Realization version="4.5-1">
         <OS>
           <Type>unix</Type>
           <Name>linux</Name>
@@ -161,15 +161,15 @@ onent.xsd">
             <Item type="disk">17Mb</Item>
           </RequirementsRealization>
         </OS>
-        <InstallableUnit>sun-mq-install-4.6-1.i386.rpm</InstallableUnit>
-        <InstallableUnit>sun-mq-config-4.6-1.i386.rpm</InstallableUnit>
-        <InstallableUnit>sun-mq-var-4.6-1.i386.rpm</InstallableUnit>
-        <InstallableUnit>sun-mq-capi-4.6-1.i386.rpm</InstallableUnit>
-        <InstallableUnit>sun-mq-jaxm-4.6-1.i386.rpm</InstallableUnit>
-        <InstallableUnit>sun-mq-jmsclient-4.6-1.i386.rpm</InstallableUnit>
-        <InstallableUnit>sun-mq-xmlclient-4.6-1.i386.rpm</InstallableUnit>
-        <InstallableUnit>sun-mq-4.6-1.i386.rpm</InstallableUnit>
-        <InstallableUnit>sun-mq-ent-4.6-1.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-install-4.5-1.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-config-4.5-1.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-var-4.5-1.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-capi-4.5-1.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-jaxm-4.5-1.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-jmsclient-4.5-1.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-xmlclient-4.5-1.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-4.5-1.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-ent-4.5-1.i386.rpm</InstallableUnit>
       </Realization>
 
       <!-- Windows x86 and x86_64 -->
@@ -197,7 +197,7 @@ onent.xsd">
     <CompositeUnit>
       <Name>Localization</Name>
 
-      <Realization version="4.6.0.0">
+      <Realization version="4.5.0.0">
         <OS>
           <Type>unix</Type>
           <Name>SunOS</Name>
@@ -226,7 +226,7 @@ onent.xsd">
         <InstallableUnit>SUNWkiquc</InstallableUnit>
       </Realization>
 
-      <Realization version="4.6.0.0">
+      <Realization version="4.5.0.0">
         <OS>
           <Type>unix</Type>
           <Name>SunOS</Name>
@@ -255,7 +255,7 @@ onent.xsd">
         <InstallableUnit>SUNWkiquc</InstallableUnit>
       </Realization>
 
-      <Realization version="4.6-1">
+      <Realization version="4.5-1">
         <OS>
           <Type>unix</Type>
           <Name>linux</Name>
@@ -268,13 +268,13 @@ onent.xsd">
             <Item type="disk">2Mb</Item>
           </RequirementsRealization>
         </OS>
-        <InstallableUnit>sun-mq-ja-4.6-1.i386.rpm</InstallableUnit>
-        <InstallableUnit>sun-mq-de-4.6-1.i386.rpm</InstallableUnit>
-        <InstallableUnit>sun-mq-es-4.6-1.i386.rpm</InstallableUnit>
-        <InstallableUnit>sun-mq-fr-4.6-1.i386.rpm</InstallableUnit>
-        <InstallableUnit>sun-mq-zh_CN-4.6-1.i386.rpm</InstallableUnit>
-        <InstallableUnit>sun-mq-zh_TW-4.6-1.i386.rpm</InstallableUnit>
-        <InstallableUnit>sun-mq-ko-4.6-1.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-ja-4.5-1.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-de-4.5-1.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-es-4.5-1.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-fr-4.5-1.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-zh_CN-4.5-1.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-zh_TW-4.5-1.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-ko-4.5-1.i386.rpm</InstallableUnit>
       </Realization>
 
       <!-- Windows x86 and x86_64 -->

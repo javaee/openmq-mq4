@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2000-2011 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000-2010 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -58,7 +58,7 @@ public class ReceiveSOAPMsg
     // Namespaces used
     public static string NS_SOAP_ENV = "http://schemas.xmlsoap.org/soap/envelope/";
     public static string NS_SOAP_ENC = "http://schemas.xmlsoap.org/soap/encoding/";
-    public static string NS_MQ_SERVICE = "https://mq.java.net/ums";
+    public static string NS_MQ_SERVICE = "https://mq.dev.java.net/ums";
 
     // Define tags & attrs
     public static string SOAP_PREFIX = "SOAP-ENV";

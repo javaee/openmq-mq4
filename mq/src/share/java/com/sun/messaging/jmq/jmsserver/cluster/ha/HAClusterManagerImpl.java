@@ -44,12 +44,11 @@
 
 package com.sun.messaging.jmq.jmsserver.cluster.ha;
 
-import java.util.*;
-import java.net.MalformedURLException;
 import com.sun.messaging.jmq.io.MQAddress;
 import com.sun.messaging.jmq.io.Status;
 import com.sun.messaging.jmq.util.log.*;
 import com.sun.messaging.jmq.util.UID;
+import java.util.*;
 import com.sun.messaging.jmq.jmsserver.service.TakingoverTracker;
 import com.sun.messaging.jmq.jmsserver.util.BrokerException;
 import com.sun.messaging.jmq.jmsserver.core.BrokerMQAddress;
@@ -60,6 +59,7 @@ import com.sun.messaging.jmq.jmsserver.persist.HABrokerInfo;
 import com.sun.messaging.jmq.jmsserver.cluster.*;
 import com.sun.messaging.jmq.jmsserver.resources.*;
 import com.sun.messaging.jmq.jmsserver.Globals;
+import java.net.MalformedURLException;
 
 // XXX FOR TEST CLASS
 import java.io.*;
@@ -214,7 +214,7 @@ public class HAClusterManagerImpl extends ClusterManagerImpl
     * @throws MalformedURLException if the address of a broker
     *         stored in the database is invalid.
     */
-   protected LinkedHashSet parseBrokerList()
+   protected Set parseBrokerList()
        throws MalformedURLException
    {
        // ignore properties, we get the list from the 
@@ -234,7 +234,7 @@ public class HAClusterManagerImpl extends ClusterManagerImpl
                  BrokerResources.I_HA_IGNORE_PROP,
                  Globals.IMQ + ".cluster.brokerlist.manual");
         }
-        LinkedHashSet brokers = new LinkedHashSet();
+        Set brokers = new HashSet();
         synchronized(allBrokers) {
             Iterator itr = allBrokers.values().iterator();
             while (itr.hasNext()) {
@@ -326,12 +326,7 @@ public class HAClusterManagerImpl extends ClusterManagerImpl
 
    }
 
-    protected ClusteredBroker updateBrokerOnActivation(
-              ClusteredBroker broker, Object userData) {
-        return updateBroker(broker);
-    }
-
-    private ClusteredBroker updateBroker(ClusteredBroker broker)  
+    public ClusteredBroker updateBroker(ClusteredBroker broker)  
     {
          // force an update
          synchronized(allBrokers) {
@@ -1406,8 +1401,7 @@ public class HAClusterManagerImpl extends ClusterManagerImpl
          * @throws IllegalStateException if this broker can not takeover.
          * @return data associated with previous broker
          */
-        public TakeoverStoreInfo takeover(boolean force, Object extraInfo,
-                                          TakingoverTracker tracker)
+        public TakeoverStoreInfo takeover(boolean force, TakingoverTracker tracker)
                                           throws BrokerException
         {
             int delay = config.getIntProperty(

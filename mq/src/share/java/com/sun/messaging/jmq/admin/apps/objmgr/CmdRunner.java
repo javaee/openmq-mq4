@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2000-2011 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000-2010 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -181,7 +181,7 @@ public class CmdRunner implements ObjMgrOptions  {
      *
      * Tries to open a connection to the object store
      * based on the properties/attributes specified.
-     * If an error occurred, no exception is thrown,
+     * If an error occured, no exception is thrown,
      * null is returned, and a error msg is printed to stderr.
     private ObjStore openStore(ObjMgrProperties objMgrProps) {
 	ObjStore os = null;
@@ -196,7 +196,7 @@ public class CmdRunner implements ObjMgrOptions  {
     /*
      * Tries to open a connection to the object store
      * based on the properties/attributes specified.
-     * If an error occurred, no exception is thrown,
+     * If an error occured, no exception is thrown,
      * null is returned, and a error msg is printed to stderr.
      */
     private ObjStore openStore(ObjStoreAttrs osa) {

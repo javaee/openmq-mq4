@@ -331,7 +331,7 @@ public class BrokerConfig extends MQMBeanReadWrite implements ConfigListener {
 		+ " received by MBean " + getMBeanName());
 
 	try  {
-	    bsh.takeoverBroker(brokerID, null, true);
+	    bsh.takeoverBroker(brokerID, true);
 	} catch (BrokerException e)  {
 	    handleOperationException(BrokerOperations.TAKEOVER, e);
 	}

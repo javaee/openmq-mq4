@@ -165,9 +165,6 @@ public class MessageType {
      */
     public static final String JMQ_JMSRA_NOTIFICATION_ONLY                = "JMQJMSRANotificationOnly";
 
-    public static final String JMQ_MIGRATESTORE_SYNC_TIMEOUT                = "JMQMigrateStoreSyncTimeout";
-    public static final String JMQ_MQ_ADDRESS                               = "JMQMQAddress";
-
     public static final int OK 				= 200;
     public static final int ERROR 			= 500;
 
@@ -302,10 +299,7 @@ public class MessageType {
     public static final int CHANGE_CLUSTER_MASTER_BROKER = 96;
     public static final int CHANGE_CLUSTER_MASTER_BROKER_REPLY = 97;
 
-    public static final int MIGRATESTORE_BROKER = 98;
-    public static final int MIGRATESTORE_BROKER_REPLY 	= 99;
-
-    public static final int LAST   			= 100;
+    public static final int LAST   			= 98;
 
     public static final String[] names = {
     	"NULL",
@@ -406,8 +400,6 @@ public class MessageType {
 	"UPDATE_CLUSTER_BROKERLIST_REPLY",
 	"CHANGE_CLUSTER_MASTER_BROKER",
 	"CHANGE_CLUSTER_MASTER_BROKER_REPLY",
-        "MIGRATESTORE_BROKER",
-        "MIGRATESTORE_BROKER_REPLY",
     	"LAST"
     };
 

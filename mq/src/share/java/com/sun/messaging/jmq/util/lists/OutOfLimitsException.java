@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2000-2011 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000-2010 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -50,7 +50,7 @@ import java.io.*;
 /**
  * this class is the exception which is thrown when a limit
  * on a limitable set/map is exceeded. It contains specifics
- * about the event that occurred (which can be used to localize
+ * about the event that occured (which can be used to localize
  * at higher levels)
  */
 

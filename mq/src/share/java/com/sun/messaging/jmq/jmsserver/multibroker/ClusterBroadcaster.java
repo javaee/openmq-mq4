@@ -159,9 +159,8 @@ public  class ClusterBroadcaster implements ClusterBroadcast,
         protocol.startClusterIO();
     }
 
-    public void stopClusterIO(boolean requestTakeover, boolean force,
-                              BrokerAddress excludedBroker) {
-        protocol.stopClusterIO(requestTakeover, force, excludedBroker);
+    public void stopClusterIO(boolean requestTakeover) {
+        protocol.stopClusterIO(requestTakeover);
 		Globals.getClusterRouter().shutdown();
     }
 
@@ -805,10 +804,6 @@ public  class ClusterBroadcaster implements ClusterBroadcast,
         return protocol.lookupBrokerAddress(brokerid);
     }
 
-    public com.sun.messaging.jmq.jmsserver.core.BrokerAddress lookupBrokerAddress(BrokerMQAddress mqaddr) {
-        return protocol.lookupBrokerAddress(mqaddr);
-    }
-
     public void syncChangeRecordOnStartup() throws BrokerException {
         ChangeRecord.storeResetRecordIfNecessary(this);
         ChangeRecord.syncChangeRecord(this, this,
@@ -876,23 +871,6 @@ public  class ClusterBroadcaster implements ClusterBroadcast,
                        " to "+newmaster);
         }
         protocol.changeMasterBroker(newmaster, oldmaster);
-    }
-
-    public String sendTakeoverMEPrepare(String brokerID, byte[] token,
-                                        Long syncTimeout, String uuid)
-                                        throws BrokerException { 
-        if (DEBUG) {
-            logger.log(Logger.INFO, "sendTakeoverMEPrepare to " + brokerID);
-        }
-        return protocol.sendTakeoverMEPrepare(brokerID, token, syncTimeout, uuid);
-    }
-
-    public String sendTakeoverME(String brokerID, String uuid)
-    throws BrokerException { 
-        if (DEBUG) {
-            logger.log(Logger.INFO, "sendTakeoverME to " + brokerID);
-        }
-        return protocol.sendTakeoverME(brokerID, uuid);
     }
 }
 

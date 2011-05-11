@@ -55,7 +55,6 @@ import com.sun.messaging.jmq.util.admin.MessageType;
 import com.sun.messaging.jmq.util.log.Logger;
 import com.sun.messaging.jmq.jmsserver.Globals;
 import com.sun.messaging.jmq.jmsserver.Broker;
-import com.sun.messaging.jmq.jmsserver.BrokerStateHandler;
 import com.sun.messaging.jmq.jmsservice.BrokerEvent;
 import com.sun.messaging.jmq.jmsserver.util.BrokerException;
 import com.sun.messaging.jmq.jmsserver.resources.BrokerResources;
@@ -122,21 +121,6 @@ public class ChangeClusterMasterBrokerHandler extends AdminCmdHandler
             emsg =  rb.getKString(rb.E_OP_NOT_APPLY_NO_MASTER_BROKER_MODE, 
                    MessageType.getString(MessageType.CHANGE_CLUSTER_MASTER_BROKER));
             logger.log(Logger.ERROR, emsg);
-            sendReply(status, emsg, con, cmd_msg);
-            return true;
-        }
-        try {
-            BrokerStateHandler.setExclusiveRequestLock(
-                ExclusiveRequest.CHANGE_MASTER_BROKER);
-        } catch (Throwable t) {
-            status = Status.PRECONDITION_FAILED;
-            if (t instanceof BrokerException) {
-                status = ((BrokerException)t).getStatusCode();
-            }
-            emsg = MessageType.getString(MessageType.CHANGE_CLUSTER_MASTER_BROKER)+": "+
-                       Status.getString(status)+" - "+t.getMessage();
-            logger.log(Logger.ERROR, emsg);
-            status = Status.PRECONDITION_FAILED;
             sendReply(status, emsg, con, cmd_msg);
             return true;
         }
@@ -244,9 +228,6 @@ public class ChangeClusterMasterBrokerHandler extends AdminCmdHandler
             logger.logStack(Logger.ERROR, emsg, e);
             sendReply(status, emsg, con, cmd_msg);
             return true; 
-        } finally {
-            BrokerStateHandler.unsetExclusiveRequestLock(
-                ExclusiveRequest.CHANGE_MASTER_BROKER);
         }
     }
 

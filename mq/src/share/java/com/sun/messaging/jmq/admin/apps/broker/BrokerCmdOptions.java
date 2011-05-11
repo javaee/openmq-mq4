@@ -78,7 +78,6 @@ public interface BrokerCmdOptions  {
     public static String CMD_COMPACT			= "compact";
     public static String CMD_QUIESCE			= "quiesce";
     public static String CMD_TAKEOVER			= "takeover";
-    public static String CMD_MIGRATESTORE	    = "migratestore";
     public static String CMD_UNQUIESCE			= "unquiesce";
     public static String CMD_EXISTS			= ".exists";
     public static String CMD_GETATTR			= ".getattr";
@@ -208,10 +207,6 @@ public interface BrokerCmdOptions  {
 							    CMDARG_BROKER
                                                         	};
 
-    public static String[] CMD_MIGRATESTORE_VALID_CMDARGS	= {
-							    CMDARG_BROKER
-                                                        	};
-
     public static String[] CMD_UNQUIESCE_VALID_CMDARGS	= {
 							    CMDARG_BROKER
                                                         	};
@@ -329,7 +324,6 @@ public interface BrokerCmdOptions  {
     public static String PROP_VALUE_CMD_COMPACT		= CMD_COMPACT;
     public static String PROP_VALUE_CMD_QUIESCE		= CMD_QUIESCE;
     public static String PROP_VALUE_CMD_TAKEOVER	= CMD_TAKEOVER;
-    public static String PROP_VALUE_CMD_MIGRATESTORE = CMD_MIGRATESTORE;
     public static String PROP_VALUE_CMD_UNQUIESCE	= CMD_UNQUIESCE;
     public static String PROP_VALUE_CMD_EXISTS		= CMD_EXISTS;
     public static String PROP_VALUE_CMD_GETATTR		= CMD_GETATTR;
@@ -547,7 +541,6 @@ public interface BrokerCmdOptions  {
     public static String PROP_NAMEVALUE_CMD_COMPACT = PROP_NAME_CMD+"="+PROP_VALUE_CMD_COMPACT;
     public static String PROP_NAMEVALUE_CMD_QUIESCE = PROP_NAME_CMD+"="+PROP_VALUE_CMD_QUIESCE;
     public static String PROP_NAMEVALUE_CMD_TAKEOVER = PROP_NAME_CMD+"="+PROP_VALUE_CMD_TAKEOVER;
-    public static String PROP_NAMEVALUE_CMD_MIGRATESTORE = PROP_NAME_CMD+"="+PROP_VALUE_CMD_MIGRATESTORE;
     public static String PROP_NAMEVALUE_CMD_UNQUIESCE = PROP_NAME_CMD+"="+PROP_VALUE_CMD_UNQUIESCE;
     public static String PROP_NAMEVALUE_CMD_EXISTS = PROP_NAME_CMD+"="+PROP_VALUE_CMD_EXISTS;
     public static String PROP_NAMEVALUE_CMD_GETATTR = PROP_NAME_CMD+"="+PROP_VALUE_CMD_GETATTR;

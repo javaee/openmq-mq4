@@ -63,19 +63,16 @@ import com.sun.messaging.bridge.service.KeyNotFoundException;
 import com.sun.messaging.bridge.service.UpdateOpaqueDataCallback;
 import com.sun.messaging.jmq.io.Packet;
 import com.sun.messaging.jmq.io.SysMessageID;
-import com.sun.messaging.jmq.io.Status;
 import com.sun.messaging.jmq.util.UID;
 import com.sun.messaging.jmq.jmsserver.Broker;
 import com.sun.messaging.jmq.jmsserver.Globals;
 import com.sun.messaging.jmq.jmsserver.cluster.BrokerState;
 import com.sun.messaging.jmq.jmsserver.config.BrokerConfig;
 import com.sun.messaging.jmq.jmsserver.core.BrokerAddress;
-import com.sun.messaging.jmq.jmsserver.core.BrokerMQAddress;
 import com.sun.messaging.jmq.jmsserver.core.Consumer;
 import com.sun.messaging.jmq.jmsserver.core.ConsumerUID;
 import com.sun.messaging.jmq.jmsserver.core.Destination;
 import com.sun.messaging.jmq.jmsserver.core.DestinationUID;
-import com.sun.messaging.jmq.jmsserver.core.ClusterProtocolHelper;
 import com.sun.messaging.jmq.jmsserver.data.BaseTransaction;
 import com.sun.messaging.jmq.jmsserver.data.ClusterTransaction;
 import com.sun.messaging.jmq.jmsserver.data.TransactionAcknowledgement;
@@ -90,7 +87,6 @@ import com.sun.messaging.jmq.jmsservice.BrokerEvent;
 import com.sun.messaging.jmq.util.log.Logger;
 import com.sun.messaging.jmq.util.txnlog.TransactionLogWriter;
 import com.sun.messaging.jmq.jmsserver.persist.sharecc.ShareConfigChangeStore;
-import com.sun.messaging.jmq.jmsserver.cluster.ClusteredBroker;
 
 /**
  * Store provides API for storing and retrieving
@@ -121,7 +117,6 @@ public abstract class Store implements JMSBridgeStore {
     public static final String FILE_STORE_TYPE = "file";
     public static final String JDBC_STORE_TYPE = "jdbc";
     public static final String INMEMORY_STORE_TYPE = "inmemory";
-    public static final String BDB_STORE_TYPE = "bdb";
 
     // control printing debug output by property file
     private static boolean DEBUG = false;
@@ -148,7 +143,7 @@ public abstract class Store implements JMSBridgeStore {
      * until all store operations are done.
      */
     // boolean flag indicating whether the store is closed or not
-    protected boolean closed = false;
+    private boolean closed = false;
     private Object closedLock = new Object();	// lock for closed
 
     // number indicating the number of store operations in progress
@@ -702,8 +697,8 @@ public abstract class Store implements JMSBridgeStore {
      * Retrieve a destination in the store.
      *
      * @param dID the destination ID
-     * @return a Destination object or null if not exist
-     * @throws BrokerException 
+     * @return a Destination object
+     * @throws BrokerException if no destination exist in the store
      */
     public abstract Destination getDestination(DestinationUID dID) 
         throws IOException, BrokerException;
@@ -1193,10 +1188,6 @@ public abstract class Store implements JMSBridgeStore {
         return true;
     }
 
-    public boolean isBDBStore() {
-        return false;
-    }
-
     /**
      * Get debug information about the store.
      * @return A Hashtable of name value pair of information
@@ -1495,14 +1486,6 @@ public abstract class Store implements JMSBridgeStore {
             "Operation not supported by the " + getStoreType() + " store" );
     }
 
-    public TakeoverStoreInfo takeoverBrokerStore(String targetInstanceName,
-                             UID targetStoreSession, String targetHostPort,
-                             TakingoverTracker tracker) 
-                             throws TakeoverLockException, BrokerException {
-        throw new UnsupportedOperationException(
-            "Operation not supported by the " + getStoreType() + " store" );
-    }
-
     /**
      * Synchronize data associated with the specified destination to disk.
      * If null is specified, data assocated with all persisted destinations
@@ -1722,19 +1705,14 @@ public abstract class Store implements JMSBridgeStore {
      * @throws BrokerException
      */
     protected void checkClosedAndSetInProgress() throws BrokerException {
-        checkClosedAndSetInProgress(Logger.ERROR); 
-    }
-
-    protected void checkClosedAndSetInProgress(int loglevel) throws BrokerException {
 	synchronized (closedLock) {
 	    if (closed) {
-            logger.log(loglevel, BrokerResources.E_STORE_ACCESSED_AFTER_CLOSED);
-            throw new BrokerException(
-                br.getString(BrokerResources.E_STORE_ACCESSED_AFTER_CLOSED),
-                Status.NOT_ALLOWED);
+		logger.log(Logger.ERROR, BrokerResources.E_STORE_ACCESSED_AFTER_CLOSED);
+		throw new BrokerException(
+			br.getString(BrokerResources.E_STORE_ACCESSED_AFTER_CLOSED));
 	    } else {
-            //increment inprogressCount
-            setInProgress(true);
+		// increment inprogressCount
+		setInProgress(true);
 	    }
 	}
     }
@@ -2099,103 +2077,6 @@ public abstract class Store implements JMSBridgeStore {
     	
     }
 
-    /**
-     */
-    public void joinReplicationGroup(String groupName, 
-                                     String nodeName,
-                                     String masterHostPort,
-                                     Integer replicaPort,
-                                     byte[] token, Long timeout, boolean takeoverPrepare,
-                                     BrokerAddress from, ClusterProtocolHelper cpi)
-                                     throws BrokerException {
-        throw new UnsupportedOperationException(
-        "joinReplicaitonGroup: operation not supported by the "+
-         getStoreType() + " store");
-    }
-
-    public void initTakeoverBrokerStore(String groupName, 
-                                       String nodeName,
-                                       String masterHostPort,
-                                       BrokerAddress from, ClusterProtocolHelper cpi)
-                                       throws BrokerException {
-        throw new UnsupportedOperationException(
-        "initTakeoverBrokerStore: operation not supported by the "+
-         getStoreType() + " store");
-    }
-
-    /**
-
-    /**
-     */
-    public String getMyReplicationGroupName() {
-        return null;
-    }
-
-    /**
-     */
-    public String getMyReplicationNodeName() {
-        return null;
-    }
-
-    /**
-     */
-    public String getMyReplicationHostPort() throws BrokerException {
-        return null;
-    }
-
-    /**
-     */
-    public Integer getMyReplicaPort(String replicaNodeName,
-                                    BrokerMQAddress addr,
-                                    boolean checkclose)
-                                    throws BrokerException {
-        return null;
-    }
-
-    /**
-     * @return a list of node names or empty list if none
-     */
-    public List<String> getMyReplicas() throws BrokerException {
-        return null;
-    }
-
-    /**
-     * @return the host:port of the broker that takes over this broker
-     */
-    public String takeoverME(String brokerID, Long syncTimeout)
-    throws BrokerException {
-        throw new UnsupportedOperationException(
-            br.getKString(br.E_INTERNAL_ERROR)+
-		    " Unsupported operation takeoverME("+brokerID+")");
-    }
-
-    public long getDefaultReplicaSyncTimeout() throws BrokerException {
-        throw new UnsupportedOperationException(
-            br.getKString(br.E_INTERNAL_ERROR)+
-		    " Unsupported operation getDefaultReplicaSyncTimeout()");
-    }
-
-    public static String makeReplicationGroupID(String instName, UID storeSession)
-    throws BrokerException {
-        if (instName == null) {
-            throw new BrokerException("null instance name");
-        }
-        if(storeSession == null) {
-            throw new BrokerException("null store session");
-        }
-        return Globals.getClusterID()+"B"+instName+"S"+storeSession;
-    }
-
-    public static String makeReplicationNodeName(String instName, UID storeSession)
-    throws BrokerException {
-        if (instName == null) {
-            throw new BrokerException("null instance name");
-        }
-        if(storeSession == null) {
-            throw new BrokerException("null store session");
-        }
-        return instName+"S"+storeSession;
-    }
-
 }
+
 

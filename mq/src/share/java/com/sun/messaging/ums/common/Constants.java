@@ -43,10 +43,10 @@ package com.sun.messaging.ums.common;
 public class Constants {
 
     //public static final String JMS_NS_PREFIX = "jms";
-    //public static final String JMS_NS_URI = "https://mq.java.net/MQService";
+    //public static final String JMS_NS_URI = "https://mq.dev.java.net/MQService";
     
     public static final String JMS_NS_PREFIX = "ums";
-    public static final String JMS_NS_URI = "https://mq.java.net/ums";
+    public static final String JMS_NS_URI = "https://mq.dev.java.net/ums";
     
     public static final String MQ_SERVICE_ROLE = "http://mq.sun.com/xmlprotocol/service";
     public static final String MESSAGE_HEADER = "MessageHeader";

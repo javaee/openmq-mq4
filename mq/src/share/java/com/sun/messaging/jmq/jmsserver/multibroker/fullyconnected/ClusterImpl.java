@@ -733,13 +733,8 @@ public class ClusterImpl implements Cluster, ClusterListener {
             dos.writeLong(self.getBrokerSessionUID().longValue());
             if (Globals.getHAEnabled()) {
                 dos.writeLong(self.getStoreSessionUID().longValue());
-            } else {
-                UID uid = self.getStoreSessionUID();
-                dos.writeBoolean((uid != null)); 
-                if (uid != null) {
-                    dos.writeLong(uid.longValue());
-                }
             }
+
             dos.flush();
             bos.flush();
         }
@@ -805,15 +800,7 @@ public class ClusterImpl implements Cluster, ClusterListener {
                 brokerID = dis.readUTF();
             }
             brokerSessionUID = new UID(dis.readLong());
-            if (ha) {
-                storeSessionUID = new UID(dis.readLong());
-            } else {
-                try {
-                    if (dis.readBoolean()) {
-                        storeSessionUID = new UID(dis.readLong());
-                    }
-                } catch (Exception e) {}
-            }
+            if (ha) storeSessionUID = new UID(dis.readLong());
         }
 
         if (hasConfigServer) {
@@ -1248,11 +1235,11 @@ public class ClusterImpl implements Cluster, ClusterListener {
     /**
      * Shutdown the cluster.
      */
-    public void shutdown(boolean force, BrokerAddress excludedBroker) {
+    public void shutdown() {
         if (supportClusters == false)
             return;
 
-        if (listener != null && excludedBroker == null)
+        if (listener != null)
             listener.shutdown(); // Stop accepting connections.
 
         if (brokerList == null)
@@ -1265,20 +1252,15 @@ public class ClusterImpl implements Cluster, ClusterListener {
         
         int pv = -1;
         try {
-            pv = Globals.getClusterBroadcast().getClusterVersion();
+		pv = Globals.getClusterBroadcast().getClusterVersion();
         } catch (Exception e) {
-            logger.log(logger.DEBUG, 
-            "Unable to get cluster protocol version on cluster shutdown: "+e.getMessage());
+        logger.log(logger.DEBUG, 
+        "Unable to get cluster protocol version on cluster shutdown: "+e.getMessage());
         }
-        if (pv >= ClusterBroadcast.VERSION_400 && !force) {
+        if (pv >= ClusterBroadcast.VERSION_400) {
 
         synchronized (brokerList) {
             while (brokerList.size() != 0) {
-                if (brokerList.size() == 1 && excludedBroker != null) {
-                    if (brokerList.get(excludedBroker) != null) {
-                        break;
-                    }
-                }
                 logger.log(logger.INFO,  br.getKString(
                 br.I_CLUSTER_SERVICE_SHUTDOWN_WAITING, new Integer(brokerList.size())));
                 try {
@@ -1304,16 +1286,11 @@ public class ClusterImpl implements Cluster, ClusterListener {
             Iterator itr = brokerList.keySet().iterator();
             while (itr.hasNext()) {
                 remote = (BrokerAddress)itr.next(); 
-                if (excludedBroker != null &&
-                    remote.equals(excludedBroker)) {
-                    continue;
-                }
                 l = (BrokerLink)brokerList.get(remote);
                 logger.log(logger.WARNING, br.getKString(
                     br.W_CLUSTER_FORCE_CLOSE_LINK, remote, 
                         br.getString(br.M_LINK_SHUTDOWN)));
                 l.shutdown();
-                itr.remove();
             }
         }
 
@@ -1322,12 +1299,6 @@ public class ClusterImpl implements Cluster, ClusterListener {
             Iterator itr = values.iterator();
             while (itr.hasNext()) {
                 BrokerLink link = (BrokerLink) itr.next();
-                if (excludedBroker != null) {
-                    BrokerAddress addr = link.getRemote();
-                    if (addr != null && addr.equals(excludedBroker)) {
-                        continue;
-                    }
-                }
                 link.shutdown();
             }
         }

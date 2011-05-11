@@ -58,7 +58,6 @@ import com.sun.messaging.jmq.util.*;
 import com.sun.messaging.jmq.jmsserver.util.BrokerException;
 import com.sun.messaging.jmq.jmsserver.service.ConnectionUID;
 import com.sun.messaging.jmq.jmsserver.core.BrokerAddress;
-import com.sun.messaging.jmq.jmsserver.core.BrokerMQAddress;
 import com.sun.messaging.jmq.jmsserver.multibroker.ClusterGlobals;
 import com.sun.messaging.jmq.jmsserver.multibroker.raptor.RaptorProtocol;
 import com.sun.messaging.jmq.jmsserver.multibroker.raptor.ProtocolGlobals;
@@ -175,7 +174,7 @@ public class CommonProtocol implements Protocol
         selfInfo.setStoreDirtyFlag(false);
         selfInfo.setClusterProtocolVersion(new Integer(ProtocolGlobals.getCurrentVersion()));
 
-        if (Globals.getJDBCHAEnabled()) {
+        if (Globals.getHAEnabled()) {
             selfInfo.setHeartbeatHostAddress(Globals.getHeartbeatService().getHeartbeatHostAddress());
             selfInfo.setHeartbeatPort(Globals.getHeartbeatService().getHeartbeatPort());
             selfInfo.setHeartbeatInterval(Globals.getHeartbeatService().getHeartbeatInterval());
@@ -301,11 +300,11 @@ public class CommonProtocol implements Protocol
         }
     }
 
-    public void stopClusterIO(boolean requestTakeover, boolean force,
-                              BrokerAddress excludedBroker) {
+    public void stopClusterIO(boolean requestTakeover) {
         if (realProtocol != null)
-            realProtocol.stopClusterIO(requestTakeover, force, excludedBroker);
-        c.shutdown(force, excludedBroker);
+            realProtocol.stopClusterIO(requestTakeover);
+
+        c.shutdown();
     }
 
     public void receiveUnicast(
@@ -413,15 +412,6 @@ public class CommonProtocol implements Protocol
             return null;
         }
         return realProtocol.lookupBrokerAddress(brokerid);
-    }
-
-    public com.sun.messaging.jmq.jmsserver.core.BrokerAddress lookupBrokerAddress(BrokerMQAddress mqaddr) {
-        if (!getProtocolInitComplete()) {
-            logger.log(logger.WARNING, Globals.getBrokerResources().getKString(
-                   BrokerResources.X_CLUSTER_PROTOCOL_NOT_READY)+": lookup("+mqaddr+")");
-            return null;
-        }
-        return realProtocol.lookupBrokerAddress(mqaddr);
     }
 
     public void clientClosed(ConnectionUID conid, boolean notify) {
@@ -564,27 +554,6 @@ public class CommonProtocol implements Protocol
         }
 
         realProtocol.changeMasterBroker(newmaster, oldmaster);
-    }
-
-	public String sendTakeoverME(String brokerID, String uuid)
-                                   throws BrokerException {
-        if (!getProtocolInitComplete()) {
-            throw new BrokerException(Globals.getBrokerResources().getKString(
-                BrokerResources.X_CLUSTER_PROTOCOL_NOT_READY), Status.UNAVAILABLE);
-        }
-
-        return realProtocol.sendTakeoverME(brokerID, uuid);
-    }
-
-	public String sendTakeoverMEPrepare(String brokerID, byte[] token,
-                                        Long syncTimeout, String uuid)
-                                        throws BrokerException {
-        if (!getProtocolInitComplete()) {
-            throw new BrokerException(Globals.getBrokerResources().getKString(
-                BrokerResources.X_CLUSTER_PROTOCOL_NOT_READY), Status.UNAVAILABLE);
-        }
-
-        return realProtocol.sendTakeoverMEPrepare(brokerID, token, syncTimeout, uuid);
     }
 
 	public Hashtable getDebugState() {

@@ -46,31 +46,24 @@ package com.sun.messaging.jmq.jmsserver;
 
 import com.sun.messaging.jmq.jmsserver.cluster.*;
 import com.sun.messaging.jmq.jmsserver.cluster.ha.HAClusteredBroker;
-import com.sun.messaging.jmq.jmsserver.cluster.ha.RepHAClusterManagerImpl;
-import com.sun.messaging.jmq.jmsserver.cluster.ha.RepHAClusteredBrokerImpl;
 import com.sun.messaging.jmq.jmsservice.BrokerEvent;
 import com.sun.messaging.jmq.jmsserver.service.*;
 import com.sun.messaging.jmq.jmsserver.resources.*;
 import com.sun.messaging.jmq.util.log.*;
 import com.sun.messaging.jmq.io.MQAddress;
 import com.sun.messaging.jmq.util.GoodbyeReason;
-import com.sun.messaging.jmq.util.admin.MessageType;
 import com.sun.messaging.jmq.jmsserver.core.ClusterBroadcast;
-import com.sun.messaging.jmq.jmsserver.core.BrokerAddress;
 import com.sun.messaging.jmq.jmsserver.data.TransactionList;
 import com.sun.messaging.jmq.jmsserver.data.handlers.InfoRequestHandler;
 import com.sun.messaging.jmq.jmsserver.util.BrokerException;
-import com.sun.messaging.jmq.jmsserver.util.OperationNotAllowedException;
 import com.sun.messaging.jmq.jmsserver.util.MQThread;
 import com.sun.messaging.jmq.jmsserver.core.Destination;
 import com.sun.messaging.jmq.jmsserver.management.agent.Agent;
 import com.sun.messaging.jmq.jmsserver.service.imq.IMQConnection;
 import com.sun.messaging.jmq.jmsserver.service.ConnectionManager;
-import com.sun.messaging.jmq.jmsserver.data.handlers.admin.ExclusiveRequest;
 import com.sun.messaging.jmq.util.DiagManager;
 import com.sun.messaging.jmq.util.ServiceType;
 import com.sun.messaging.jmq.util.UID;
-import com.sun.messaging.jmq.io.Status;
 import com.sun.messaging.bridge.BridgeServiceManager;
 import java.util.Date;
 import java.util.Iterator;
@@ -92,10 +85,8 @@ public class BrokerStateHandler
      private Logger logger = Globals.getLogger();
      private BrokerResources br = Globals.getBrokerResources();
 
-     private static final Object exclusiveRequestLock = new Object();
-     private static ExclusiveRequest exclusiveRequestInProgress = null;
-
      public static boolean shuttingDown = false;
+
 
      public static boolean shutdownStarted = false;
 
@@ -136,108 +127,32 @@ public class BrokerStateHandler
          return remaining;
     }
 
-    public void takeoverBroker(String brokerID, Object extraInfo, boolean force)
+    public void takeoverBroker(String brokerID, boolean force)
         throws BrokerException
     {
         ClusterManager cm = Globals.getClusterManager();
-        if (!cm.isHA() && !Globals.getBDBREPEnabled()) {
+        if (!cm.isHA()) {
             throw new BrokerException( 
                Globals.getBrokerResources().getKString(
-               BrokerResources.X_NO_ADMIN_TAKEOVER_SUPPORT));
+               BrokerResources.X_NONHA_NO_TAKEOVER_SUPPORT));
         } else {
-            HAClusteredBroker hcb = null;
-            if (Globals.getJDBCHAEnabled()) {
-                hcb = (HAClusteredBroker)cm.getBroker(brokerID);
-            } else if (Globals.getBDBREPEnabled()) {
-                hcb = (RepHAClusteredBrokerImpl)((RepHAClusterManagerImpl)cm).
-                          getBrokerByNodeName(brokerID);
-            }
+            HAClusteredBroker hcb = (HAClusteredBroker)
+                          cm.getBroker(brokerID);
             if (hcb == null) {
                 throw new BrokerException(
                     Globals.getBrokerResources().getKString(
                     BrokerResources.X_UNKNOWN_BROKERID, brokerID));
-            }
-            if (hcb.isLocalBroker()) {
+            } else if (hcb.isLocalBroker()) {
                 throw new BrokerException(
                     Globals.getBrokerResources().getKString(
                     BrokerResources.X_CANNOT_TAKEOVER_SELF));
-            } 
-            Globals.getHAMonitorService().takeoverBroker(hcb, extraInfo, force);
-        }
-    }
-
-    /**
-     * @return the host:port of the broker that takes over this broker
-     */
-    public String takeoverME(String brokerID, 
-                           Long syncTimeout, Connection conn)
-                           throws BrokerException {
-
-        ClusterManager cm = Globals.getClusterManager();
-        if (!Globals.getBDBREPEnabled()) {
-            throw new OperationNotAllowedException( 
-               Globals.getBrokerResources().getKString(
-               BrokerResources.X_NO_ADMIN_TAKEOVER_SUPPORT),
-               MessageType.getString(MessageType.MIGRATESTORE_BROKER));
-        } 
-        HAClusteredBroker hcb = (HAClusteredBroker)
-                                  ((RepHAClusterManagerImpl)cm).
-                                    getBrokerByNodeName(brokerID);
-        if (hcb == null) {
-            throw new OperationNotAllowedException(
-                Globals.getBrokerResources().getKString(
-                BrokerResources.X_UNKNOWN_BROKERID, brokerID),
-                MessageType.getString(MessageType.MIGRATESTORE_BROKER));
-        }
-        if (hcb.isLocalBroker()) {
-             throw new OperationNotAllowedException(
-                 Globals.getBrokerResources().getKString(
-                 BrokerResources.X_ADMIN_TAKEOVERME_BY_ME, hcb),
-                 MessageType.getString(MessageType.MIGRATESTORE_BROKER));
-        }
-        try {
-            BrokerAddress addr = Globals.getClusterBroadcast().
-                                     lookupBrokerAddress(brokerID);
-            if (addr == null) {
-                throw new OperationNotAllowedException(
-                    Globals.getBrokerResources().getKString(
-                    BrokerResources.X_CLUSTER_BROKER_NOT_ONLINE, hcb+"["+brokerID+"]"),
-                    MessageType.getString(MessageType.MIGRATESTORE_BROKER));
-            }
-            Globals.getServiceManager().stopNewConnections(ServiceType.NORMAL);
-            prepareShutdown(false, false, addr);
-            shutdownServices("admin:migratestore["+brokerID+"]", 0, conn);
-        } catch (Throwable t) {
-            throw new BrokerException(t.getMessage(),
-                Status.PRECONDITION_FAILED); 
-        }
-        return Globals.getHAMonitorService().takeoverME(hcb, brokerID, syncTimeout);
-    }
-
-    public static void setExclusiveRequestLock(ExclusiveRequest req) 
-    throws BrokerException {
-        synchronized(exclusiveRequestLock) {
-            if (req != null) {
-                if (exclusiveRequestInProgress != null) {
-                    throw new BrokerException(
-                        exclusiveRequestInProgress.toString(true), Status.CONFLICT);
-                } 
-                exclusiveRequestInProgress = req;
-                return;
-            } 
-        }
-    }
-
-    public static void unsetExclusiveRequestLock(ExclusiveRequest req) {
-        synchronized(exclusiveRequestLock) {
-            if (exclusiveRequestInProgress == null) {
-                return;
-            }
-            if (exclusiveRequestInProgress == req) {
-                exclusiveRequestInProgress = null;
+            } else {
+                Globals.getHAMonitorService().takeoverBroker(hcb, force);
             }
         }
+
     }
+    
 
     /**
      * Stop allowing new jms connections to the broker.
@@ -442,12 +357,7 @@ public class BrokerStateHandler
 
    }
 
-    public void prepareShutdown(boolean failover, boolean force) {
-        prepareShutdown(failover, force, null);
-    } 
-
-    private void prepareShutdown(boolean failover,
-                 boolean force, BrokerAddress excludedBroker) {
+    public void prepareShutdown(boolean failover) {
         prepared = true;
 
         BridgeServiceManager bridgeManager =  Globals.getBridgeServiceManager();
@@ -471,49 +381,15 @@ public class BrokerStateHandler
             Globals.getMemManager().stopManagement();
 
         // First stop creating new destinations
-        if (excludedBroker == null) {
-            Destination.shutdown();
-        }
+        Destination.shutdown();
 
         // Next, close all the connections with clustered brokers
         // so that we don't get stuck processing remote events..
 
         // XXX - tell cluster whether or not failover should happen
-        Globals.getClusterBroadcast().stopClusterIO(failover, force, excludedBroker);
+        Globals.getClusterBroadcast().stopClusterIO(failover);
     }
 
-    private void shutdownServices(String requestedBy, 
-                                  int exitCode, Connection excludedConn)
-                                  throws BrokerException { 
-
-        ServiceManager sm = Globals.getServiceManager();
-
-        ConnectionManager cmgr = Globals.getConnectionManager();
-        Globals.getLogger().logToAll(Logger.INFO,
-                                     BrokerResources.I_BROADCAST_GOODBYE);
-        int id = GoodbyeReason.SHUTDOWN_BKR;
-        String msg = Globals.getBrokerResources().getKString(
-                         BrokerResources.M_ADMIN_REQ_SHUTDOWN,
-                         requestedBy);
-        if (exitCode == getRestartCode()) {
-            id = GoodbyeReason.RESTART_BKR;
-            msg = Globals.getBrokerResources().getKString(
-                      BrokerResources.M_ADMIN_REQ_RESTART,
-                      requestedBy);
-        }
-        cmgr.broadcastGoodbye(id, msg, excludedConn);
-
-        Globals.getLogger().logToAll(Logger.INFO,
-                                     BrokerResources.I_FLUSH_GOODBYE);
-        cmgr.flushControlMessages(1000);
-    
-        // XXX - should be notify other brokers we are going down ?
-        sm.stopAllActiveServices(true, (excludedConn == null ? null: excludedConn.getService().getName()));
-        TransactionList tlist = Globals.getTransactionList(); 
-        if (tlist != null) {
-            tlist.destroy();
-        }
-    }
 
     public class ShutdownRunnable implements Runnable
     {
@@ -611,12 +487,43 @@ public class BrokerStateHandler
                 shuttingDown = true;
                 shutdownStarted = true;
 
-                prepareShutdown(failover, false); // in case not called yet
+                prepareShutdown(failover); // in case not called yet
 
                 ServiceManager sm = Globals.getServiceManager();
+
+                // OK .. first stop sending anything out
                 sm.stopNewConnections(ServiceType.ADMIN);
 
-                shutdownServices(requestedBy, exitCode, null);
+                ConnectionManager cmgr = Globals.getConnectionManager();
+
+                Globals.getLogger().logToAll(Logger.INFO,
+                                         BrokerResources.I_BROADCAST_GOODBYE);
+                int id = GoodbyeReason.SHUTDOWN_BKR;
+                String msg =
+                    Globals.getBrokerResources().getKString(
+                         BrokerResources.M_ADMIN_REQ_SHUTDOWN,
+                          requestedBy);
+
+                if (exitCode == getRestartCode()) {
+                    id = GoodbyeReason.RESTART_BKR;
+                    msg = Globals.getBrokerResources().getKString(
+                             BrokerResources.M_ADMIN_REQ_RESTART,
+                              requestedBy);
+                }
+                cmgr.broadcastGoodbye(id, msg);
+
+                Globals.getLogger().logToAll(Logger.INFO,
+                                         BrokerResources.I_FLUSH_GOODBYE);
+                cmgr.flushControlMessages(1000);
+    
+                // XXX - should be notify other brokers we are going down ?
+
+                sm.stopAllActiveServices(true);
+
+                TransactionList tlist = Globals.getTransactionList(); 
+                if (tlist != null) {
+                    tlist.destroy();
+                }
 
    	        // stop JMX connectors
                 if (cleanupJMX) {

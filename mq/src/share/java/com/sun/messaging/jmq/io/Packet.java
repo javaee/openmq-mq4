@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2000-2011 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000-2010 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -799,7 +799,7 @@ public class Packet implements JMSPacket {
 	fixedBuf.putLong(expiration);
 
 	// Writes timestamp, source IP addr, source port, and sequence number
-        // Hack to get a data output stream for SysMessageID.
+        // Hack to get a data ouput stream for SysMessageID.
         OutputStream os = new JMQByteBufferOutputStream(fixedBuf);
         DataOutputStream dos = new DataOutputStream(os);
 	sysMessageID.writeID(dos);

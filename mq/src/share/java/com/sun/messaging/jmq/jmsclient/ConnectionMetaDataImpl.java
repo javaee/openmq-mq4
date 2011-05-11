@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2000-2011 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000-2010 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -62,9 +62,9 @@ public class ConnectionMetaDataImpl implements ConnectionMetaData {
     protected static final int JMSMajorVersion = 1;
     protected static final int JMSMinorVersion = 1;
     public static final String JMSProviderName = version.getProductName();
-    public static final String providerVersion = "4.6";
+    public static final String providerVersion = "4.5";
     protected static final int providerMajorVersion = 4;
-    protected static final int providerMinorVersion = 6;
+    protected static final int providerMinorVersion = 5;
 
     public static final String JMSXGroupID = "JMSXGroupID";
     public static final String JMSXGroupSeq = "JMSXGroupSeq";

@@ -54,13 +54,13 @@ import java.util.Map;
  */
 public final class TakeoverStoreInfo {
 
-    private String targetName = null;      // Broker that is being taken over
-    private List dstList = null;           // Local destination this broker owns
-    private Map msgMap = null;             // Msg IDs and corresponding dst IDs this broker owns
-    private List txnList = null;           // Transaction this broker owns
-    private List remoteTxnList = null;     // Remote txn this broker participates in
-    private long lockAcquiredTime = 0L;    // Timestamp when takeover lock is acquired
-    private HABrokerInfo savedInfo = null; // Saved state of the broker being taken over
+    private String brokerID;        // Broker that is being taken over
+    private List dstList;           // Local destination this broker owns
+    private Map msgMap;             // Msg IDs and corresponding dst IDs this broker owns
+    private List txnList;           // Transaction this broker owns
+    private List remoteTxnList;     // Remote txn this broker participates in
+    private long lockAcquiredTime;  // Timestamp when takeover lock is acquired
+    private HABrokerInfo savedInfo; // Saved state of the broker being taken over
 
     /**
      * Constructor
@@ -71,22 +71,16 @@ public final class TakeoverStoreInfo {
     public TakeoverStoreInfo( String bkrID, HABrokerInfo bkrInfo, long ts ) {
 
         lockAcquiredTime = ts;
-        targetName = bkrID;
+        brokerID = bkrID;
         savedInfo = bkrInfo;
     }
 
-    public TakeoverStoreInfo(String targetName, long takeoverStartTime) {
-
-        this.lockAcquiredTime = takeoverStartTime;
-        this.targetName = targetName;
-    }
-
     /**
-     * Return the target name that is being taken over.
-     * @return the targetName that is being taken over
+     * Return the brokerID that is being taken over.
+     * @return the brokerID that is being taken over
      */
-    public final String getTargetName() {
-        return targetName;
+    public final String getBrokerID() {
+        return brokerID;
     }
 
     /**

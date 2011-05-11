@@ -642,14 +642,6 @@ public class Globals
 	return (getHostname());
     }
 
-    public static boolean getJDBCHAEnabled() {
-        return StoreManager.isConfiguredJDBCStore() && getHAEnabled();
-    }
-
-    public static boolean getBDBREPEnabled() {
-        return StoreManager.isConfiguredBDBStore() && StoreManager.bdbREPEnabled();
-    }
-
     public static boolean getHAEnabled() {
         if (HAEnabled == null) {
             BrokerConfig conf = Globals.getConfig();
@@ -932,14 +924,10 @@ public class Globals
                 String classname = Globals.getConfig().
                         getProperty(Globals.IMQ + 
                              ".cluster.manager.class");
-                if (getJDBCHAEnabled()) {
+                if (getHAEnabled()) {
                     classname = Globals.getConfig().
                         getProperty(Globals.IMQ + 
-                         ".hacluster.jdbc.manager.class");
-                } else if (getBDBREPEnabled()) {
-                    classname = Globals.getConfig().
-                        getProperty(Globals.IMQ + 
-                         ".hacluster.bdb.manager.class");
+                         ".hacluster.manager.class");
                 }
                 try {
                      Class c = Class.forName(classname);
@@ -1060,9 +1048,8 @@ public class Globals
     }
 
     public static boolean dynamicChangeMasterBrokerEnabled() {
-        return (getConfig().getBooleanProperty(
-            DYNAMIC_CHANGE_MASTERBROKER_ENABLED_PROP, false) ||
-            getBDBREPEnabled());
+        return getConfig().getBooleanProperty(
+            DYNAMIC_CHANGE_MASTERBROKER_ENABLED_PROP, false);
     }
 
     public static boolean useMasterBroker() {

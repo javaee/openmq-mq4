@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2000-2011 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000-2010 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -61,17 +61,17 @@ public class Event extends java.util.EventObject
     protected EventType id;
 
     /**
-     * original value before the event occurred
+     * original value before the event occured
      */
     protected Object original_value;
 
     /**
-     * new value after the event occurred
+     * new value after the event occured
      */
     protected Object new_value;
 
     /**
-     * reason the event occurred
+     * reason the event occured
      */
     protected Reason reason;
     
@@ -121,7 +121,7 @@ public class Event extends java.util.EventObject
     }
     
     /**
-     * @returns the reasont this event occurred
+     * @returns the reasont this event occured
      *  (may be null)
      */
     public Reason getReason() {

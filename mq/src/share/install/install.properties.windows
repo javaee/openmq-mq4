@@ -37,7 +37,7 @@
 # only if the new code is made subject to such option by the copyright
 # holder.
 #
-InstallHome.directory.INSTALL_HOME=c:\\Program Files\\Oracle\\MessageQueue
-InstallDirectory.directory.INSTALL_DIRECTORY=c:\\Program Files\\Oracle\\MessageQueue
+InstallHome.directory.INSTALL_HOME=c:\\Program Files\\Sun\\MessageQueue
+InstallDirectory.directory.INSTALL_DIRECTORY=c:\\Program Files\\Sun\\MessageQueue
 JDK.Installation.JDK_PRODUCT_NAME=
 JDKSelection.directory.JDK_VERSIONRANGE=JDK[1.5.0_06--INFINITY),JRE[1.5.0_06--INFINITY)

@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2000-2011 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000-2010 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -241,10 +241,10 @@ public class EventBroadcastHelper implements EventBroadcaster
 
     /**
      * method which notifies all listeners an event
-     * has occurred.
-     * @param type of event that has occurred
-     * @param r why the event occurred (may be null)
-     * @param target the event occurred on
+     * has occured.
+     * @param type of event that has occured
+     * @param r why the event occured (may be null)
+     * @param target the event occured on
      * @param oldval value before the event
      * @param newval value after the event
      */

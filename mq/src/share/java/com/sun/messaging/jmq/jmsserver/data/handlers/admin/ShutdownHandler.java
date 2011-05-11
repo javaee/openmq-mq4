@@ -156,7 +156,7 @@ public class ShutdownHandler extends AdminCmdHandler
         	 // stop new connections
         	 // set the flag to notify everyone we are shutting down
         	 BrokerStateHandler.shuttingDown = true;
-        	 bsh.prepareShutdown(failover, false);
+        	 bsh.prepareShutdown(failover);
          }
 
          //if we aren't doing an unsafe exit, give us time to complete any operations

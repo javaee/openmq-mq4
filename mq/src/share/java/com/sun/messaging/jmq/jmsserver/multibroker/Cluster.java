@@ -101,10 +101,8 @@ public interface Cluster {
 
     /**
      * Shutdown the cluster topology driver.
-     * @param excludedBroker if not null, do not shutdown
      */
-    public void shutdown(boolean force, 
-        com.sun.messaging.jmq.jmsserver.core.BrokerAddress excludedBroker);
+    public void shutdown();
 
     /**
      * Shutdown link to a remote broker instance

@@ -361,8 +361,8 @@ public class BrokerResources extends MQResourceBundle {
     final public static String I_BROKER_REMOVE          = "B1167";
     final public static String I_TAKEOVER_LOCK_ACQUIRED = "B1168";
     final public static String I_REMOVING_TAKEOVER_LOCK = "B1169";
-    final public static String I_STORE_AUTOCREATE_ENABLED   = "B1170";
-    final public static String I_STORE_AUTOCREATE_DISABLED  = "B1171";
+    final public static String I_JDBCSTORE_AUTOCREATE_ENABLED   = "B1170";
+    final public static String I_JDBCSTORE_AUTOCREATE_DISABLED  = "B1171";
     final public static String I_CLUSTER_UNICAST                = "B1172";
     final public static String I_CLUSTER_RECEIVE                = "B1173";
     final public static String I_CLUSTER_WAITING_REPLY          = "B1174";
@@ -590,12 +590,6 @@ public class BrokerResources extends MQResourceBundle {
     final public static String I_RM_MSG_ON_REPLAY_MSG_REMOVAL = "B1391";
     final public static String I_OPEN_TXNLOG = "B1392";
     final public static String I_DB_POOL_POLL_WAIT = "B1393";
-    final public static String I_ADMIN_MIGRATESTORE_TO = "B1394";
-    final public static String I_CLOSING_PERSISTENT_STORE = "B1395";
-    final public static String I_ADMIN_MIGRATESTORE = "B1396";
-    final public static String I_WAIT_ADMIN_RECEIVE_REPLY = "B1397";
-    final public static String I_SEND_TO_ADMIN_CLIENT = "B1398";
-    final public static String I_OP_IN_PROGRESS = "B1399";
 
     // 2000-2999 Warning Messages
     final public static String W_AUTH_FAILED	 	= "B2000";
@@ -869,9 +863,6 @@ public class BrokerResources extends MQResourceBundle {
     final public static String W_UNABLE_CLEANUP_REMOTE_MSG_ON_ROUTE = "B2245";
     final public static String W_DB_POOL_CLOSING = "B2246";
     final public static String W_DB_POOL_POLL_TIMEOUT = "B2247";
-    final public static String W_UNABLE_DELETE_FILE_IN_DIR = "B2248";
-    final public static String W_UNABLE_RENAME_FILE = "B2249";
-    final public static String W_STOP_SERVICE_FAIL = "B2250";
 
     // 3000-3999 Error Messages
     final public static String E_PERSISTENT_OPEN 	= "B3000";
@@ -1162,11 +1153,6 @@ public class BrokerResources extends MQResourceBundle {
     final public static String E_TXN_REAPER_UNEXPECTED_EXIT = "B3279";
     final public static String E_CANT_CREATE_PWFILE = "B3280";
     final public static String E_NO_UPGRADE_OLD_FSTORE_WITH_NEWTXNLOG = "B3281";
-    final public static String E_GET_MSG_METRICS_FROM_STORE_FAIL = "B3282";
-    final public static String E_FAIL_MIGRATESTORE_NOT_MIGRATED = "B3283";
-    final public static String E_FAIL_TAKEOVERME = "B3284";
-    final public static String E_OPERATION_NOT_SUPPORTED_IN_HA = "B3285";
-    final public static String E_CHANGE_MASTER_BROKER_FIRST = "B3286";
 
     // 4000-4999 Exception Messages
     final public static String X_NO_FILE 		= "B4000";
@@ -1490,7 +1476,7 @@ public class BrokerResources extends MQResourceBundle {
 	final public static String X_A_BROKER_TAKINGOVER_THIS_BROKER = "B4310";
 	final public static String X_CANNOT_TAKEOVER_SELF = "B4311";
 	final public static String X_UNKNOWN_BROKERID = "B4312";
-	final public static String X_NO_ADMIN_TAKEOVER_SUPPORT = "B4313";
+	final public static String X_NONHA_NO_TAKEOVER_SUPPORT = "B4313";
 	final public static String X_LOCKFILE_CONTENT_FORMAT = "B4314";
 	final public static String X_BAD_ADDRESS_BROKER_LIST = "B4315";
     final public static String X_READ_PASSWORD_FROM_STDIN = "B4316";
@@ -1539,9 +1525,6 @@ public class BrokerResources extends MQResourceBundle {
     final public static String X_INVALID_MAX_PRODUCER_COUNT = "B4359";
     final public static String X_SESSION_CLOSED = "B4360";
     final public static String X_UNABLE_PROCESS_MESSAGE_ACK = "B4361";
-    final public static String X_COULD_NOT_DELETE_FILE = "B4362";
-    final public static String X_ADMIN_TAKEOVERME_BY_ME = "B4363";
-    final public static String X_CLUSTER_BROKER_NOT_ONLINE = "B4364";
 
     /***************** End of message key constants *******************/
 

@@ -50,7 +50,7 @@ onent.xsd">
     <Identifier feature="true">NSPR</Identifier>
     <Description>Netscape Portable Runtime</Description>
     <IdentityVersion>
-      <VersionBaseline>4.8</VersionBaseline>
+      <VersionBaseline>4.7</VersionBaseline>
     </IdentityVersion>
     <Vendor>Oracle</Vendor>
     <Other>Java Enterprise System</Other>
@@ -71,7 +71,7 @@ onent.xsd">
             <VersionBaseline>5.9</VersionBaseline>
           </VersionCertified>
         </OS>
-        <InstallableUnit version="4.8">SUNWpr</InstallableUnit>
+        <InstallableUnit version="4.7">SUNWpr</InstallableUnit>
       </Realization>
 
       <!-- Solaris x86 and x86_64 -->
@@ -85,7 +85,7 @@ onent.xsd">
             <VersionBaseline>5.9</VersionBaseline>
           </VersionCertified>
         </OS>
-        <InstallableUnit version="4.8">SUNWpr</InstallableUnit>
+        <InstallableUnit version="4.7">SUNWpr</InstallableUnit>
       </Realization>
 
       <!-- Linux x86 and x86_64 -->
@@ -99,7 +99,7 @@ onent.xsd">
             <VersionBaseline>2.4</VersionBaseline>
           </VersionCertified>
         </OS>
-        <InstallableUnit version="4.8-2">sun-nspr-4.8.6-2.i386.rpm</InstallableUnit>
+        <InstallableUnit version="4.7-1">sun-nspr-4.7-1.i386.rpm</InstallableUnit>
       </Realization>
 
       <Realization critical="true">
@@ -111,8 +111,8 @@ onent.xsd">
             <VersionBaseline>2.4</VersionBaseline>
           </VersionCertified>
         </OS>
-        <InstallableUnit version="4.8-2">sun-nspr-4.8.2-2.i386.rpm</InstallableUnit>
-        <InstallableUnit version="4.8-2">sun-nspr-4.8.6-2.x86_64.rpm</InstallableUnit>
+        <InstallableUnit version="4.7-1">sun-nspr-4.7-1.i386.rpm</InstallableUnit>
+        <InstallableUnit version="4.7-2">sun-nspr-4.7-1.x86_64.rpm</InstallableUnit>
       </Realization>
 
     </CompositeUnit>

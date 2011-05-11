@@ -99,11 +99,7 @@ public interface ClusterBroadcast {
 
     public void startClusterIO();
 
-    /**
-     * @param excludedBroker if not null, do not shutdown cluster service
-     */
-    public void stopClusterIO(boolean requestTakeover, boolean force,
-                              BrokerAddress excludedBroker);
+    public void stopClusterIO(boolean requestTakeover);
 
     public void pauseMessageFlow() throws IOException;
 
@@ -207,14 +203,9 @@ public interface ClusterBroadcast {
 	public void sendClusterTransactionInfo(long tid, BrokerAddress to);
 
     /**
-     * Lookup the broker address for a broker ID - only for HA mode and BDBREP mode 
+     * Lookup the broker address for a broker ID - only for HA mode
      */
 	public BrokerAddress lookupBrokerAddress(String brokerid);
-
-    /**
-     * Lookup the BrokerAddress for a BrokerMQAddress 
-     */
-	public BrokerAddress lookupBrokerAddress(BrokerMQAddress mqaddr);
 
    /**
      * This method can only be called if this broker is the current
@@ -251,13 +242,6 @@ public interface ClusterBroadcast {
      * master broker.
      */
     public void changeMasterBroker(BrokerMQAddress newmaster, BrokerMQAddress oldmaster)
-    throws BrokerException;
-
-    public String sendTakeoverMEPrepare(String brokerID, byte[] token,
-                                        Long syncTimeout, String uuid)
-                                        throws BrokerException;
-
-    public String sendTakeoverME(String brokerID, String uuid)
     throws BrokerException;
 }
 

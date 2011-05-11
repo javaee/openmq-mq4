@@ -49,7 +49,6 @@ import java.util.Hashtable;
 
 import com.sun.messaging.jmq.io.Packet;
 import com.sun.messaging.jmq.io.PacketType;
-import com.sun.messaging.jmq.io.SysMessageID;
 import com.sun.messaging.jmq.io.Status;
 import com.sun.messaging.jmq.jmsserver.Broker;
 import com.sun.messaging.jmq.jmsserver.BrokerStateHandler;
@@ -200,7 +199,7 @@ public class AdminDataHandler extends DataHandler {
 		}
 
 		// if we arent shutdown .. track our handler cnt
-		if (t != MessageType.SHUTDOWN && t != MessageType.MIGRATESTORE_BROKER)
+		if (t != MessageType.SHUTDOWN)
 			incrementActiveHandlers();
 
 		try {
@@ -270,7 +269,7 @@ public class AdminDataHandler extends DataHandler {
 				}
 			}
 		} finally {
-			if (t != MessageType.SHUTDOWN && t != MessageType.MIGRATESTORE_BROKER)
+			if (t != MessageType.SHUTDOWN)
 				decrementActiveHandlers();
 		}
 
@@ -326,7 +325,6 @@ public class AdminDataHandler extends DataHandler {
 		handlers[MessageType.CHECKPOINT_BROKER] = new CheckpointBrokerHandler(this);
 		handlers[MessageType.UPDATE_CLUSTER_BROKERLIST] = new UpdateClusterBrokerListHandler(this);
 		handlers[MessageType.CHANGE_CLUSTER_MASTER_BROKER] = new ChangeClusterMasterBrokerHandler(this);
-		handlers[MessageType.MIGRATESTORE_BROKER] = new MigrateStoreHandler(this);
 	}
 
 	/**
@@ -339,7 +337,7 @@ public class AdminDataHandler extends DataHandler {
 	 * @param reply_msg
 	 *            Broker's reply to cmd_msg.
 	 */
-	public SysMessageID sendReply(IMQConnection con, Packet cmd_msg, Packet reply_msg) {
+	public void sendReply(IMQConnection con, Packet cmd_msg, Packet reply_msg) {
 
 		try {
 
@@ -349,7 +347,7 @@ public class AdminDataHandler extends DataHandler {
 				// Programming error. No need to I18N
 				logger.log(Logger.ERROR, rb.E_INTERNAL_BROKER_ERROR,
 						"Administration message has no ReplyTo destination. Not replying.");
-				return null;
+				return;
 			}
 
 			reply_msg.setDestination(destination);
@@ -390,18 +388,17 @@ public class AdminDataHandler extends DataHandler {
 							"Admin: Could not extract properties from pkt", e);
 				}
 			}
-            SysMessageID mid = reply_msg.getSysMessageID();
 
 			// DataHandler's handle method will treat this as a message being
 			// sent by a client.
 			// XXX REVISIT 08/30/00 dipol: can 'con' be null to indicate
 			// message is originating from an internal source?
+
 			super.handle(con, reply_msg, true /* we are admin */);
-            return mid;
 		} catch (Exception e) {
 			logger.log(Logger.ERROR, rb.E_INTERNAL_BROKER_ERROR, "Could not reply to administrative message.", e);
 		}
-        return null;
+
 	}
 
 	private void incrementActiveHandlers() {

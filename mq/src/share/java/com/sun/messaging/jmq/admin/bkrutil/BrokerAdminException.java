@@ -44,8 +44,6 @@
 
 package com.sun.messaging.jmq.admin.bkrutil;
 
-import javax.jms.Message;
-
 /**
  *  This class used by imqcmd, imqadmin ,imqbridgemgr
  *  Please create subcass if need individual admin tool specific references 
@@ -78,10 +76,8 @@ public class BrokerAdminException extends Exception {
 			brokerPort,
 			brokerAddr;
     private int		type,
-			replyStatus = -1,
+			replyStatus,
     			replyMsgType;
-
-    private Message replyMsg = null;
 
     public BrokerAdminException(int type) {
 	super();
@@ -111,14 +107,6 @@ public class BrokerAdminException extends Exception {
     }
     public int getReplyMsgType()  {
 	return (replyMsgType);
-    }
-
-    public void setReplyMsg(Message msg)  {
-	this.replyMsg = msg;
-    }
-
-    public Message getReplyMsg()  {
-	return replyMsg;
     }
 
     public void setBadValue(String badValue)  {

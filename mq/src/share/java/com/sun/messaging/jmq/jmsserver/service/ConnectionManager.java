@@ -434,18 +434,10 @@ public class ConnectionManager extends WeakValueHashMap
      * @param msg why the goodbye is being broadcast (debugging)
      */
     public void broadcastGoodbye(int reason, String msg) {
-        broadcastGoodbye(reason, msg, null);
-    }
-
-    public void broadcastGoodbye(int reason, String msg,
-                                 Connection excludedConn) {
         List cons = getConnectionList(null);
         Connection con;
         for (int i = cons.size()-1; i >= 0; i--) {
            con = (Connection)cons.get(i);
-           if (excludedConn != null && con == excludedConn) {
-               continue;
-           } 
            con.sayGoodbye(reason, msg);
         }
     }

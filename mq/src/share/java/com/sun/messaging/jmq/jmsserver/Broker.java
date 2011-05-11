@@ -839,7 +839,7 @@ public class Broker implements GlobalErrorHandler {
         String brokerid = Globals.getBrokerID();
         String clusterid = Globals.getClusterID();
 
-        if (Globals.getHAEnabled()) {
+        if (isHA) {
             if (brokerid == null) {
                 logger.log(Logger.ERROR,
                      BrokerResources.E_BID_MUST_BE_SET);
@@ -849,15 +849,8 @@ public class Broker implements GlobalErrorHandler {
                  BrokerResources.I_RUNNING_IN_HA,
                  brokerid, clusterid);
         } else if (brokerid != null) {
-            if (Globals.getBDBREPEnabled()) {
-                logger.log(Logger.WARNING, 
-                    Globals.getBrokerResources().getKString(
-                    BrokerResources.W_PROP_SETTING_TOBE_IGNORED,
-                        Globals.BROKERID_PROPERTY+"="+brokerid));
-            } else {
-                logger.log(Logger.INFO,
-                    BrokerResources.I_STARTING_WITH_BID, brokerid);
-            }
+            logger.log(Logger.INFO,
+                BrokerResources.I_STARTING_WITH_BID, brokerid);
         }
 
         PortMapper pm = Globals.getPortMapper();
@@ -992,25 +985,21 @@ public class Broker implements GlobalErrorHandler {
         }
 
         HAMonitorService haMonitor = null;
-        if (Globals.getJDBCHAEnabled() || Globals.getBDBREPEnabled()) {
+        if (isHA) {
+            logger.log(Logger.INFO,
+               BrokerResources.I_STARTING_MONITOR);
 
             try {
-                if (Globals.getJDBCHAEnabled()) {
-                    logger.log(Logger.INFO, BrokerResources.I_STARTING_MONITOR);
-
-                    // OK, in HA if the configuration already exists in the
-                    // store, getMQAddress reflects the old state (this
-                    // is because we want to do some additional startup
-                    // checks)
-                    // pass the "requested" address into HAMonitorService
-                    // who will handle any updates
-                    haMonitor = new HAMonitorService(Globals.getClusterID(),
-                                    Globals.getMQAddress(), resetTakeoverThenExit);
-                    if (resetTakeoverThenExit) {
-                        return (0);
-                    }
-                } else {
-                    haMonitor = new HAMonitorService();
+                // OK, in HA if the configuration already exists in the
+                // store, getMQAddress reflects the old state (this
+                // is because we want to do some additional startup
+                // checks)
+                // pass the "requested" address into HAMonitorService
+                // who will handle any updates
+                haMonitor = new HAMonitorService(Globals.getClusterID(),
+                                Globals.getMQAddress(), resetTakeoverThenExit);
+                if (resetTakeoverThenExit) {
+                    return (0);
                 }
                 Globals.setHAMonitorService(haMonitor);
             } catch (Exception ex) {
@@ -1022,14 +1011,14 @@ public class Broker implements GlobalErrorHandler {
                 return (1);
             }
 
-            if (Globals.getJDBCHAEnabled()) {
-                logger.log(Logger.INFO, BrokerResources.I_STARTING_HEARTBEAT);
-                try {
-                    Globals.registerHeartbeatService(new HeartbeatService());
-                } catch (Exception e) {
-                    logger.log(Logger.ERROR, BrokerResources.E_ERROR_STARTING_HB, e);
-                    return (1);
-                }
+            logger.log(Logger.INFO, 
+               BrokerResources.I_STARTING_HEARTBEAT);
+            try {
+                Globals.registerHeartbeatService(new HeartbeatService());
+            } catch (Exception e) {
+                logger.log(Logger.ERROR,
+                    BrokerResources.E_ERROR_STARTING_HB, e);
+                return (1);
             }
         }
 
@@ -1499,14 +1488,10 @@ public class Broker implements GlobalErrorHandler {
         if (isHA) {
             matchProps.setProperty(Globals.IMQ + ".cluster.ha",
               Globals.getConfig().getProperty(Globals.IMQ +".cluster.ha")); //must true
-            matchProps.setProperty(StoreManager.STORE_TYPE_PROP,
-              Globals.getConfig().getProperty(StoreManager.STORE_TYPE_PROP));
-            if (Globals.getJDBCHAEnabled()) {
-                matchProps.setProperty(Globals.IMQ + ".cluster.monitor.interval",
-                                       String.valueOf(haMonitor.getMonitorInterval()));
-                matchProps.setProperty(Globals.IMQ + ".cluster.heartbeat.class",
-                    Globals.getConfig().getProperty(Globals.IMQ +".cluster.heartbeat.class"));
-            }
+            matchProps.setProperty(Globals.IMQ + ".cluster.monitor.interval",
+                                   String.valueOf(haMonitor.getMonitorInterval()));
+            matchProps.setProperty(Globals.IMQ + ".cluster.heartbeat.class",
+              Globals.getConfig().getProperty(Globals.IMQ +".cluster.heartbeat.class"));
             matchProps.setProperty(Globals.IMQ + ".service.activelist",
               Globals.getConfig().getProperty(Globals.IMQ +".service.activelist"));
             matchProps.setProperty(Globals.IMQ + ".bridge.enabled",
@@ -1514,20 +1499,13 @@ public class Broker implements GlobalErrorHandler {
 
         } else if (Globals.isNewTxnLogEnabled()) {
             matchProps.setProperty(StoreManager.NEW_TXNLOG_ENABLED_PROP, "true");
-
-        } else if (Globals.getBDBREPEnabled()) {
-            matchProps.setProperty(StoreManager.STORE_TYPE_PROP,
-              Globals.getConfig().getProperty(StoreManager.STORE_TYPE_PROP));
-            matchProps.setProperty(StoreManager.BDB_REPLICATION_ENABLED_PROP, "true");
         }
+
         if (Globals.getClusterManager().getMasterBroker() != null && Globals.nowaitForMasterBroker()) {
             matchProps.setProperty(Globals.NOWAIT_MASTERBROKER_PROP, "true");
         }
-        if (Globals.useMasterBroker()) {
-            if (Globals.dynamicChangeMasterBrokerEnabled() ||
-                Globals.getBDBREPEnabled()) {
-                matchProps.setProperty(Globals.DYNAMIC_CHANGE_MASTERBROKER_ENABLED_PROP, "true");
-            }
+        if (Globals.useMasterBroker() && Globals.dynamicChangeMasterBrokerEnabled()) {
+            matchProps.setProperty(Globals.DYNAMIC_CHANGE_MASTERBROKER_ENABLED_PROP, "true");
         }
         if (Globals.useSharedConfigRecord()) {
             matchProps.setProperty(Globals.NO_MASTERBROKER_PROP, "true");

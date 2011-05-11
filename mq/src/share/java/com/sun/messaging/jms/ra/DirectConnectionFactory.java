@@ -112,6 +112,11 @@ public class DirectConnectionFactory extends ConnectionCreator
     private javax.resource.spi.ConnectionManager cm = null;
 
     /**
+     *  DirectConnection made by this Direct ConnectionFactory
+     */
+    private transient Vector <DirectConnection> connections = null;
+
+    /**
      *  Logging
      */
     private static transient final String _className =
@@ -155,6 +160,7 @@ public class DirectConnectionFactory extends ConnectionCreator
         _loggerOC.entering(_className, "constructor(jmsservice, props)", params);
         this.jmsservice = jmsservice;
         this.configuration= props;
+        connections = new Vector <DirectConnection> ();
         _loggerOC.exiting(_className, "constructor(jmsservice, props):config="+toString());
     }
 
@@ -176,6 +182,7 @@ public class DirectConnectionFactory extends ConnectionCreator
         this.inACC = ra.getInAppClientContainer();
         this.inClusteredContainer = ra.getInClusteredContainer();
         this.raNameSpace = ra._getRAUID();
+        connections = new Vector <DirectConnection> ();
         _loggerOC.exiting(_className, "constructor(mcf, cm):config="+toString());
 
     }

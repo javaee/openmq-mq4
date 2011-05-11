@@ -63,7 +63,7 @@ public class TakeoverPendingHandler extends GPacketHandler {
 
     public void handle(BrokerAddress sender, GPacket pkt) {
         if (pkt.getType() == ProtocolGlobals.G_TAKEOVER_PENDING) {
-            if (!Globals.getHAEnabled() && !Globals.getBDBREPEnabled()) {
+            if (!Globals.getHAEnabled()) {
             logger.log(logger.ERROR, BrokerResources.E_INTERNAL_BROKER_ERROR, 
                        "Received Unexpected TAKEOVER_PENDING from "+sender);
             return;

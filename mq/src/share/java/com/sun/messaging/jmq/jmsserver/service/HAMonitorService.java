@@ -173,8 +173,6 @@ public class HAMonitorService implements ClusterListener
         long lastts = 0;
         UID brokerSession = null;
         UID storeSession = null;
-        String brokerName = null;
-        Object extraInfo = null;
     }
 
 
@@ -341,10 +339,6 @@ public class HAMonitorService implements ClusterListener
     }    
 
 	FaultInjection fi = null;
-
-    //no monitoring
-    public HAMonitorService() {
-    }
 
     /**
      * Start the monitoring service.
@@ -827,47 +821,18 @@ public class HAMonitorService implements ClusterListener
 
     public boolean inTakeover() {
         synchronized(takeoverRunnableLock) {
-            return (takeoverRunnable != null || takeoverMEInprogress);
+            return takeoverRunnable != null;
         }
     }
 
-    /**
-     * @return host:port string of the broker that takes over this broker
-     *
-     * Status code of exception thrown is important
-     */
-    public String takeoverME(HAClusteredBroker cb, 
-                           String brokerID, Long syncTimeout) 
-                           throws BrokerException {
-        synchronized(takeoverRunnableLock) {
-            takeoverMEInprogress = true;
-        }
-        try {
-            if (!Globals.getBDBREPEnabled()) { 
-                throw new BrokerException(
-                    Globals.getBrokerResources().getKString(
-                    BrokerResources.X_NO_ADMIN_TAKEOVER_SUPPORT),
-                    Status.NOT_ALLOWED);
-            }
-            return Globals.getStore().takeoverME(brokerID, syncTimeout); 
-        } finally {
-            takeoverMEInprogress = false; 
-        }
-    }
-
-    public void takeoverBroker(HAClusteredBroker cb, Object extraInfo, boolean force) 
-    throws BrokerException {
+    public void takeoverBroker(HAClusteredBroker cb, boolean force) 
+        throws BrokerException 
+    {
         downBroker dbroker = new downBroker();
         dbroker.cb = cb;
         dbroker.lastts = cb.getHeartbeat();
         dbroker.brokerSession = cb.getBrokerSessionUID();
         dbroker.storeSession = cb.getStoreSessionUID();
-        dbroker.extraInfo = extraInfo;
-        if (cb instanceof RepHAClusteredBrokerImpl) {
-            dbroker.brokerName = ((RepHAClusteredBrokerImpl)cb).getNodeName();
-        } else {
-            dbroker.brokerName = cb.getBrokerName();
-        }
         ArrayList l = new ArrayList();
         l.add(dbroker);
         synchronized(takeoverRunnableLock) {
@@ -887,7 +852,6 @@ public class HAMonitorService implements ClusterListener
     }
 
     Runnable takeoverRunnable = null;
-    boolean takeoverMEInprogress = false; 
     Object takeoverRunnableLock = new Object();
     boolean monitorBusy = false;
     private Vector takingoverTargets =  new Vector();
@@ -929,7 +893,7 @@ public class HAMonitorService implements ClusterListener
             while (itr.hasNext()) {
                 target = (TakingoverTracker)itr.next();
                 UID ss = target.getStoreSessionUID();
-                if (target.getTargetName().equals(brokerID) &&
+                if (target.getBrokerID().equals(brokerID) &&
                     ((ss == null && 
                       target.getDownStoreSessionUID().equals(storeSession)) ||
                      (ss != null && 
@@ -998,15 +962,11 @@ public class HAMonitorService implements ClusterListener
             while (itr.hasNext()) {
                 downBroker dbroker = (downBroker)itr.next();
                 HAClusteredBroker cb = dbroker.cb;
-                String brokerName = dbroker.brokerName;
-                if (brokerName == null) {
-                    brokerName = cb.getBrokerName();
-                }
                 logger.log(Logger.INFO, BrokerResources.I_START_TAKEOVER,
-                                        brokerName);
+                                        cb.getBrokerName() );
                 boolean takeoverComplete = false;
                 TakingoverTracker tracker = new TakingoverTracker(
-                                                brokerName,
+                                                cb.getBrokerName(),
                                                 Thread.currentThread());
                 tracker.setBrokerSessionUID(dbroker.brokerSession);
                 tracker.setDownStoreSessionUID(dbroker.storeSession);
@@ -1014,29 +974,29 @@ public class HAMonitorService implements ClusterListener
                 takingoverTargets.add(tracker);
 
                 try {
-                    mbus.preTakeover(brokerName, tracker.getDownStoreSessionUID(),
+                    mbus.preTakeover(cb.getBrokerName(), tracker.getDownStoreSessionUID(),
                          ((BrokerMQAddress)cb.getBrokerURL()).getHost().getHostAddress(),
                          tracker.getBrokerSessionUID());
 
-                    TakeoverStoreInfo info = cb.takeover(force, dbroker.extraInfo, tracker);
+                    TakeoverStoreInfo info = cb.takeover(force, tracker);
                     tracker.setStage_BEFORE_PROCESSING();
                     takeoverComplete = true;
                     logger.log(Logger.INFO, BrokerResources.I_TAKEOVER_OK,
-                                            tracker.getTargetName());
+                                            tracker.getBrokerID());
 
                     Map msgs = info.getMessageMap();
                     List txn = info.getTransactionList();
                     List remoteTxn = info.getRemoteTransactionList();
                     logger.log(Logger.INFO,
                           BrokerResources.I_TAKEOVER_TXNS,
-                          tracker.getTargetName(),
+                          tracker.getBrokerID(),
                           String.valueOf(txn == null ? 0 : txn.size()));
                     logger.log(Logger.INFO,
                           BrokerResources.I_TAKEOVER_REMOTE_TXNS,
-                          tracker.getTargetName(),
+                          tracker.getBrokerID(),
                           String.valueOf(remoteTxn == null ? 0 : remoteTxn.size()));
 
-                    Destination.remoteCheckTakeoverMsgs(msgs, tracker.getTargetName());
+                    Destination.remoteCheckTakeoverMsgs(msgs, tracker.getBrokerID());
 
                     // handle takeover logic
                     // process rolling back transactions
@@ -1076,7 +1036,7 @@ public class HAMonitorService implements ClusterListener
                         } else if (type == AutoRollbackType.ALL) {
                             // rollback
                             String args[] = {
-                                 tracker.getTargetName(),
+                                 tracker.getBrokerID(),
                                  String.valueOf(tid.longValue()),
                                  ts.toString(ts.getState()) };
                             logger.log(Logger.INFO,
@@ -1096,7 +1056,7 @@ public class HAMonitorService implements ClusterListener
                         } else if (ts.getType() == AutoRollbackType.NOT_PREPARED 
                             &&  ts.getState() < TransactionState.PREPARED) {
                             String args[] = {
-                                 tracker.getTargetName(),
+                                 tracker.getBrokerID(),
                                  String.valueOf(tid.longValue()),
                                  ts.toString(ts.getState()) };
                             logger.log(Logger.INFO,
@@ -1114,7 +1074,7 @@ public class HAMonitorService implements ClusterListener
                              openTxns.add(tid);
                         } else {
                             String args[] = {
-                                tracker.getTargetName(),
+                                tracker.getBrokerID(),
                                 String.valueOf(tid.longValue()),
                                  ts.toString(ts.getState()) };
                             logger.log(Logger.INFO,
@@ -1133,7 +1093,7 @@ public class HAMonitorService implements ClusterListener
                         } catch (Exception e) {
                             logger.log(logger.WARNING, 
                             "Unable to get transaction state "+tid+ 
-                            " for takenover broker "+tracker.getTargetName()); 
+                            " for takenover broker "+tracker.getBrokerID()); 
                             continue;
                         }
                         if (ts == null) continue;
@@ -1158,18 +1118,18 @@ public class HAMonitorService implements ClusterListener
                         } catch (Exception e) {
                             logger.log(logger.WARNING, 
                             "Unable to set ROLLBACK state to transaction "+tid+":"+
-                            e.getMessage()+ " for takenover broker "+tracker.getTargetName());
+                            e.getMessage()+ " for takenover broker "+tracker.getBrokerID());
                             continue;
                         }
                     }
 
                     TakeoverReaper reaper = new TakeoverReaper(
-                        tracker.getTargetName(), openTxns);
+                        tracker.getBrokerID(), openTxns);
 
                     Map m = Globals.getTransactionList().loadTakeoverTxns(txn, remoteTxn, msgs);
                     logger.log(Logger.INFO,
                           BrokerResources.I_TAKEOVER_MSGS,
-                          tracker.getTargetName(),
+                          tracker.getBrokerID(),
                          String.valueOf(msgs == null ? 0 : msgs.size()));
 
                     Destination.loadTakeoverMsgs(msgs, txn, m);
@@ -1228,7 +1188,7 @@ public class HAMonitorService implements ClusterListener
                             if (takeoverBy != null) {
                                 logger.log(Logger.INFO,
                                     BrokerResources.E_UNABLE_TO_TAKEOVER_BKR,
-                                    brokerName,
+                                    cb.getBrokerName(),
                                     "Broker is being taken over by " + takeoverBy);
                             } else {
                                 logger.log(Logger.ERROR,
@@ -1237,7 +1197,7 @@ public class HAMonitorService implements ClusterListener
                         } else {
                             logger.logStack(Logger.ERROR,
                                 BrokerResources.E_UNABLE_TO_TAKEOVER_BKR,
-                                brokerName,
+                                cb.getBrokerName(),
                                 "Takeover lock error (state=" + state +
                                 ", takeoverBroker=" + takeoverBy + ")", ex);
                         }
@@ -1260,13 +1220,13 @@ public class HAMonitorService implements ClusterListener
                         } else {
                             logger.logStack(Logger.ERROR,
                                 BrokerResources.E_UNABLE_TO_TAKEOVER_BKR,
-                                brokerName, ex.getMessage(), ex);
+                                cb.getBrokerName(), ex.getMessage(), ex);
                         }
                     }
                     cb.setBrokerIsUp(false, dbroker.brokerSession, null);
                     if (throwex) throw ex;
                 } finally {
-                    mbus.postTakeover(tracker.getTargetName(),
+                    mbus.postTakeover(tracker.getBrokerID(),
                                       (takeoverComplete ? tracker.getStoreSessionUID():
                                                           tracker.getDownStoreSessionUID()),
                                       !takeoverComplete);

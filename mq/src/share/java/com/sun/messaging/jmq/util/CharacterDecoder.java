@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2000-2011 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000-2010 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -128,7 +128,7 @@ public abstract class CharacterDecoder {
 
     /**
      * This method does an actual decode. It takes the decoded bytes and
-     * writes them to the OutputStream. The integer <i>l</i> tells the
+     * writes them to the OuputStream. The integer <i>l</i> tells the
      * method how many bytes are required. This is always <= bytesPerAtom().
      */
     protected void decodeAtom(InputStream aStream, OutputStream bStream, int l) throws IOException { 
@@ -188,7 +188,7 @@ public abstract class CharacterDecoder {
     /**
      * Alternate decode interface that takes a String containing the encoded
      * buffer and returns a byte array containing the data.
-     * @exception IOException An error has occurred while decoding
+     * @exception IOException An error has occured while decoding
      */
     public byte decodeBuffer(String inputString)[] throws IOException {
 	ByteArrayInputStream inStream;

@@ -3,7 +3,7 @@
 
     DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
 
-    Copyright (c) 2010-2011 Oracle and/or its affiliates. All rights reserved.
+    Copyright (c) 2010 Oracle and/or its affiliates. All rights reserved.
 
     The contents of this file are subject to the terms of either the GNU
     General Public License Version 2 only ("GPL") or the Common Development
@@ -233,11 +233,11 @@
 		 destdir="${javadocs.dir}"
 		 version="true"
 		 use="true"
-		 windowtitle="${JMQ_SOFTWARE_NAME_SHORT}, v4.6 API Specification">
+		 windowtitle="${JMQ_SOFTWARE_NAME_SHORT}, v4.5 API Specification">
         <classpath refid="platform.classpath"/>
-   	<doctitle><![CDATA[<h1>${JMQ_SOFTWARE_NAME_SHORT}, v4.6 API Specification</h1>]]></doctitle>
-   	<header><![CDATA[${JMQ_SOFTWARE_NAME_SHORT}, v4.6 API Specification]]></header>
-    	<bottom><![CDATA[<font size="-1"><i>Copyright (c) 2010-2011, Oracle and/or its affiliates.  All rights reserved.</i></font>]]></bottom>
+   	<doctitle><![CDATA[<h1>${JMQ_SOFTWARE_NAME_SHORT}, v4.5 API Specification</h1>]]></doctitle>
+   	<header><![CDATA[${JMQ_SOFTWARE_NAME_SHORT}, v4.5 API Specification]]></header>
+    	<bottom><![CDATA[<font size="-1"><i>Copyright (c) 2010, Oracle and/or its affiliates.  All rights reserved.</i></font>]]></bottom>
     	<tag name="todo" scope="all" description="To do:"/>
     	<link href="http://jscstage.sfbay.sun.com/j2se/1.5.0/docs/api/"/>
 	</javadoc>

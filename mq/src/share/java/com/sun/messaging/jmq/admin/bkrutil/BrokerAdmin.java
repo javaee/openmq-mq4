@@ -813,57 +813,6 @@ public class BrokerAdmin extends BrokerAdminConn  {
         }
     }
 
-    public void sendMigrateStoreMessage(String brokerID) throws BrokerAdminException {
-
-        if (debug) Globals.stdOutPrintln("***** sendMigrateStoreMessage *****");
-        ObjectMessage mesg = null;
-        checkIfBusy();
-        try {
-            mesg = session.createObjectMessage();
-            mesg.setJMSReplyTo(replyQueue);
-            mesg.setIntProperty(MessageType.JMQ_MESSAGE_TYPE,
-                                MessageType.MIGRATESTORE_BROKER);
-            if (brokerID != null) {
-                mesg.setStringProperty(MessageType.JMQ_BROKER_ID, brokerID);
-            }
-            statusEvent = createStatusEvent(BrokerCmdStatusEvent.MIGRATESTORE_BKR,
-                                            MessageType.MIGRATESTORE_BROKER_REPLY,
-                                            "MIGRATESTORE_BROKER_REPLY");
-            if (debug)  {
-                printMsgType(MessageType.MIGRATESTORE_BROKER, "MIGRATESTORE_BROKER");
-                Globals.stdOutPrintln("\t"
-                + MessageType.JMQ_BROKER_ID
-                + " = "
-                + brokerID);
-            }
-            sender.send(mesg);
-        } catch (Exception e) {
-            handleSendExceptions(e);
-        }
-    }
-
-    public String receiveMigrateStoreReplyMessage() throws BrokerAdminException {
-
-        if (debug) Globals.stdOutPrintln("***** receiveMigrateStoreReplyMessage *****");
-        Message mesg = null;
-        try {
-            mesg = (ObjectMessage)receiveCheckMessageTimeout(false);
-            mesg.acknowledge();
-            clearStatusEvent();
-            checkReplyTypeStatus(mesg, MessageType.MIGRATESTORE_BROKER_REPLY, 
-                                       "MIGRATESTORE_BROKER_REPLY");
-            String bk = mesg.getStringProperty(MessageType.JMQ_BROKER_ID);
-            String hp = mesg.getStringProperty(MessageType.JMQ_MQ_ADDRESS);
-            if (bk != null) {
-                bk = bk + (hp == null ? "":"["+hp+"]");
-            }
-            return bk;
-        } catch (Exception e) {
-            handleReceiveExceptions(e);
-            return null;
-        }
-    }
-
     public void sendGetDestinationsMessage(String dstName, int dstType) 
 			throws BrokerAdminException {
 

@@ -987,17 +987,6 @@ public class AdminResources extends MQResourceBundle {
     final public static String I_JMQCMD_CHANGEMASTER_CLS_SUC      = "A1806";
     final public static String I_JMQCMD_CHANGEMASTER_NOOP         = "A1807";
 
-    /*
-     * Strings for 'imqcmd migratestore bkr'
-     */
-    final public static String I_JMQCMD_MIGRATESTORE_BKR    = "A1808";
-    final public static String I_JMQCMD_MIGRATESTORE_BKR_FAIL_NOT_MIGRATED = "A1809";
-    final public static String I_JMQCMD_MIGRATESTORE_BKR_SUC  = "A1810";
-    final public static String I_JMQCMD_MIGRATESTORE_BKR_NOOP = "A1811";
-    final public static String I_JMQCMD_MIGRATESTORE_BKR_TO = "A1812";
-    final public static String I_JMQCMD_MIGRATESTORE_BKR_FAIL = "A1813";
-    final public static String I_JMQCMD_MIGRATESTORE_BKR_FAIL_STATUS = "A1814";
-
 
     // 2000-2999 Warning Messages
     final public static String W_OBJ_ALREADY_EXISTS	= "A2000";
@@ -1304,7 +1293,6 @@ public class AdminResources extends MQResourceBundle {
     final public static String Q_UPDATE_DEST_XML_SCHEMA_OK = "A5034";
     final public static String Q_CHECKPOINT_BKR_OK	= "A5035";
     final public static String Q_CHANGEMASTER_OK = "A5036";
-    final public static String Q_MIGRATESTORE_BKR_OK = "A5037";
 
     /***************** End of message key constants *******************/
 }
