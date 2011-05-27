@@ -224,6 +224,8 @@ onent.xsd">
         <InstallableUnit>SUNWjiquc</InstallableUnit>
         <InstallableUnit>SUNWkiqu</InstallableUnit>
         <InstallableUnit>SUNWkiquc</InstallableUnit>
+        <InstallableUnit>SUNWptiqu</InstallableUnit>
+        <InstallableUnit>SUNWptiquc</InstallableUnit>
       </Realization>
 
       <Realization version="4.5.1.0">
@@ -253,6 +255,8 @@ onent.xsd">
         <InstallableUnit>SUNWjiquc</InstallableUnit>
         <InstallableUnit>SUNWkiqu</InstallableUnit>
         <InstallableUnit>SUNWkiquc</InstallableUnit>
+        <InstallableUnit>SUNWptiqu</InstallableUnit>
+        <InstallableUnit>SUNWptiquc</InstallableUnit>
       </Realization>
 
       <Realization version="4.5-1">
@@ -273,7 +277,7 @@ onent.xsd">
         <InstallableUnit>sun-mq-es-4.5-1.i386.rpm</InstallableUnit>
         <InstallableUnit>sun-mq-fr-4.5-1.i386.rpm</InstallableUnit>
         <InstallableUnit>sun-mq-it-4.5-1.i386.rpm</InstallableUnit>
-        <InstallableUnit>sun-mq-pt_BR-it-4.5-1.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-pt_BR-4.5-1.i386.rpm</InstallableUnit>
         <InstallableUnit>sun-mq-zh_CN-4.5-1.i386.rpm</InstallableUnit>
         <InstallableUnit>sun-mq-zh_TW-4.5-1.i386.rpm</InstallableUnit>
         <InstallableUnit>sun-mq-ko-4.5-1.i386.rpm</InstallableUnit>

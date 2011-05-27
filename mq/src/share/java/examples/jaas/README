@@ -2,7 +2,7 @@ This README describes how to plug in the SampleLoginModule from the
 JAAS Authentication Tutorial to MQ broker.
 
 1. Download following files from JAAS Tutorials -> JAAS Authentication at
-   http://java.sun.com/j2se/1.5.0/docs/guide/security/jaas/tutorials/
+   http://download.oracle.com/javase/1.5.0/docs/guide/security/jaas/tutorials/
 
    SampleLoginModule.java	
    SamplePrincipal.java 

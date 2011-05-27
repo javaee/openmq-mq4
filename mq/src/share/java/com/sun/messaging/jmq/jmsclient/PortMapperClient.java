@@ -219,10 +219,8 @@ public class PortMapperClient {
             String version =
                 String.valueOf(PortMapperTable.PORTMAPPER_VERSION) + "\n";
 
-            //Socket socket = new Socket (host, port);
-            
-            //bug 6696742 - be able to set connect timeout 
-            int timeout = TCPConnectionHandler.getImqSocketConnectTimeout();
+            // bug 6696742 - add ability to set connect timeout 
+            int timeout = connection.getSocketConnectTimeout();
             Socket socket = makeSocketWithTimeout(host, port, timeout);
             
             InputStream is = socket.getInputStream();

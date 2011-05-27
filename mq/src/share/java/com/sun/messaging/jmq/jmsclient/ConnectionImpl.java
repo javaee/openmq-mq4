@@ -288,6 +288,18 @@ public class ConnectionImpl implements com.sun.messaging.jms.Connection,Traceabl
 
     //The magic number from Dipol.
     protected long dupsOkAckTimeout = 7000L; //seven seconds.
+    
+    /**
+     * 
+     * Value of ConnectionFactory property imqSocketConnectTimeout
+     * This property defines the socket timeout, in milliseconds, 
+     * used when a TCP connection is made to the broker. 
+     * A timeout of zero is interpreted as an infinite timeout. 
+     * The connection will then block until established or an error occurs. 
+     * This property is used when connecting to the port mapper as well
+     * as when connecting to the required service.
+     */
+    protected int imqSocketConnectTimeout = 0;
 
     /**
      * flag used for setting client ID.
@@ -1007,6 +1019,24 @@ public class ConnectionImpl implements com.sun.messaging.jms.Connection,Traceabl
             prop = System.getProperty ("imqDupsOkAckTimeout");
             if ( prop != null ) {
                 dupsOkAckTimeout = Integer.parseInt( prop );
+            }
+            
+            // Work out what socket timeout, in milliseconds, should be used when a TCP connection is made to the broker. 
+            // this may be defined either using a system property imqSocketConnectTimeout 
+            // or using a connection factory property imqSocketConnectTimeout
+            // Since the connection factory property was added after the system property was added
+            // in order to allow backwards compatibility, the system property  is always used if set
+    		String tmpVal = System.getProperty("imqSocketConnectTimeout");
+    		if (tmpVal!=null){
+    			// set via system property
+    			imqSocketConnectTimeout = Integer.parseInt(tmpVal);
+    		} else {
+    			// not set via system property
+    			prop = getTrimmedProperty (ConnectionConfiguration.imqSocketConnectTimeout);
+            	if ( prop != null ) {
+            		// set via connection factory property
+            		imqSocketConnectTimeout = Integer.parseInt( prop );
+            	}
             }
 
             //dups ok ack on empty queue
@@ -3405,6 +3435,10 @@ public class ConnectionImpl implements com.sun.messaging.jms.Connection,Traceabl
 
     public long getPingAckTimeout() {
         return protocolHandler.getPingAckTimeout();
+    }
+    
+    public int getSocketConnectTimeout(){
+    	return this.imqSocketConnectTimeout;
     }
     
     /**

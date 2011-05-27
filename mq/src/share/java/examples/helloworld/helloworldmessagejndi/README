@@ -285,30 +285,3 @@ objects created by running:
 
 You will be prompted for confirmation - respond with 'y'.
 
-Useful URLs
------------
-MQ main product page:
- http://sun.com/software/message_queue
-
-MQ documentation page:
- http://docs.sun.com/db/prod/s1.s1msgqu#hic
-
-A better understanding of JNDI and how java objects are stored can be found
-in the JNDI tutorial at:
- http://java.sun.com/products/jndi/tutorial/index.html
-
-Some of the relevant sections of the JNDI tutorial:
- Java Objects and the Directory
-  http://java.sun.com/products/jndi/tutorial/objects/index.html
-
- Tips for LDAP Users
-  http://java.sun.com/products/jndi/tutorial/ldap/index.html
-
- LDAP Security
-  http://java.sun.com/products/jndi/tutorial/ldap/security/index.html
- This will explain the usage of these properties:
-
-    java.naming.security.authentication
-    java.naming.security.principal
-    java.naming.security.credentials
-

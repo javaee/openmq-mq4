@@ -89,7 +89,7 @@ To compile the examples,
      <IMQ_HOME>/lib/jms.jar
      <IMQ_HOME>/lib/imq.jar
      <IMQ_HOME>/lib/imqxm.jar
-     saaj-api.jar  (http://java.sun.com/webservices/docs/1.5/)
+     saaj-api.jar  (http://download.oracle.com/docs/cd/E17802_01/webservices/webservices/docs/1.5/)
      activation.jar  (http://java.sun.com/products/archive/javabeans/jaf11.html)
 
    You will also need to include the javax.servlet classes in your
@@ -277,8 +277,8 @@ The next two examples demonstrate how to use SOAP messages with JMS clients.
     MessageTransformer to send SOAP messages to a JMS Topic.
     In this example, a SOAP message is first constructed using the
     javax.xml.soap package.
-    Next, content acquired from http://java.sun.com/webservices/ is added
-    to the SOAP message.
+    Next, content acquired from http://www.oracle.com/technetwork/java/index-jsp-137004.html 
+    is added to the SOAP message.
     The SOAP message is then converted to a JMS message using the
     MessageTransformer utility.
     Finally, the JMS message is published to a JMS topic.

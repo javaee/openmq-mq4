@@ -66,9 +66,12 @@ public class TCPConnectionHandler extends SocketConnectionHandler {
     private int counter = 0;
 
     private Socket socket = null;
+    
+    private int socketConnectTimeout = 0;
+    
     //private static int soLingerTime = 5;
 
-    private String host = null;
+	private String host = null;
 
     private int baseport = 0;
     private int directport = 0;
@@ -79,10 +82,7 @@ public class TCPConnectionHandler extends SocketConnectionHandler {
     
     //is reachable time out value in milli seconds.
     public static int imqIsReachableTimeout = 30000;
-          
-    //socket creation timeout, default is 0 (timeout disabled)
-    public static int imqSocketConnectTimeout = 0;
-    
+              
     static {
     	
     	try {
@@ -94,13 +94,7 @@ public class TCPConnectionHandler extends SocketConnectionHandler {
     		
     		//is reachable timeout
     		imqIsReachableTimeout = Integer.parseInt(tmp);
-    		
-    		//set connect timeout
-    		tmp = System.getProperty("imqSocketConnectTimeout", "0");
-    		
-    		//socket connect timeout
-    		imqSocketConnectTimeout = Integer.parseInt(tmp);
-    		
+
     	} catch (Exception ex) {
     		ConnectionImpl.getConnectionLogger().log(Level.WARNING, ex.toString(), ex);
     	}
@@ -124,6 +118,8 @@ public class TCPConnectionHandler extends SocketConnectionHandler {
             ConnectionConfiguration.imqBrokerServicePort));
         String namedservice = connection.getProperty(
             ConnectionConfiguration.imqBrokerServiceName);
+        socketConnectTimeout=connection.getSocketConnectTimeout();
+        
 
         // Resolve the service port if necessary.
         if (directport == 0) {
@@ -165,6 +161,7 @@ public class TCPConnectionHandler extends SocketConnectionHandler {
         if (addr.isServicePortFinal())
             directport = addr.getPort();
         String namedservice = addr.getServiceName();
+        socketConnectTimeout=connection.getSocketConnectTimeout();
 
         // Resolve the service port if necessary.
         if (directport == 0) {
@@ -211,7 +208,7 @@ public class TCPConnectionHandler extends SocketConnectionHandler {
         //Socket socket = new Socket(host, port);
         
         //bug 6696742 - be able to set connect timeout 
-        Socket socket = makeSocketWithTimeout(host, port, imqSocketConnectTimeout);
+        Socket socket = makeSocketWithTimeout(host, port, socketConnectTimeout);
         
         socket.setTcpNoDelay( tcpNoDelay );
 
@@ -322,10 +319,10 @@ public class TCPConnectionHandler extends SocketConnectionHandler {
         //return host + ":" port;
     }
     
-    public static int getImqSocketConnectTimeout() {
-    	return imqSocketConnectTimeout;
-    }
-
+    public int getSocketConnectTimeout() {
+		return socketConnectTimeout;
+	}
+    
     public String toString() {
         String info = null;
         try {

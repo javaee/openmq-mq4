@@ -144,7 +144,7 @@ public class SendSOAPMessageWithJMS {
         /**
          * Create an atachment with activation API.
          */
-        URL url = new URL ("http://java.sun.com/webservices/");
+        URL url = new URL ("http://www.oracle.com/technetwork/java/index-jsp-137004.html");
         DataHandler dh = new DataHandler (url);
         AttachmentPart ap = soapMessage.createAttachmentPart(dh);
         /**

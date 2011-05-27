@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2000-2010 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000-2011 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -525,6 +525,16 @@ public class ConnectionConfiguration {
      * @see com.sun.messaging.ConnectionConfiguration#imqAbortOnPingAckTimeout
      */
     public static final String imqPingAckTimeout = "imqPingAckTimeout";
+    
+    /**
+     * This property defines the socket timeout, in milliseconds, 
+     * used when a TCP connection is made to the broker. 
+     * A timeout of zero is interpreted as an infinite timeout. 
+     * The connection will then block until established or an error occurs. 
+     * This property is used when connecting to the port mapper as well
+     * as when connecting to the required service.
+     */
+    public static final String imqSocketConnectTimeout = "imqSocketConnectTimeout";
 
     /**
      * If this property is set to true, the MQ Client Runtime will abort
