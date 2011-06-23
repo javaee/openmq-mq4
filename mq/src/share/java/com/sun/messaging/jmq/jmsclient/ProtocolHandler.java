@@ -2829,6 +2829,12 @@ public class ProtocolHandler {
     public void
         endTransaction(long transactionID, int xaflags, JMQXid xid) throws
         JMSException {
+        endTransaction(transactionID, false, xaflags, xid);
+    }
+    
+    public void
+        endTransaction(long transactionID, boolean jmqnoop, int xaflags, JMQXid xid) throws
+        JMSException {
         ReadWritePacket pkt = new ReadWritePacket();
 
         ByteArrayOutputStream byteArrayOutputStream = null;
@@ -2866,6 +2872,10 @@ public class ProtocolHandler {
                     //ExceptionHandler.handleException(ioe, AdministeredObject.cr.X_NET_ACK, true);
                 }
             }
+        }
+        
+        if (jmqnoop == true) {
+            ht.put("JMQNoOp", jmqnoop);
         }
 
         pkt.setProperties(ht);

@@ -130,10 +130,10 @@ public class DeliverHandler extends PacketHandler
 
         Packet[] sentp = new Packet[ackcount];
 
-        int i = 0; // actual count
+        int sentPackets = 0; // actual # packets sent
 
         try {
-            for (i = 0; i < ackcount; i ++ ) {
+            for (int i = 0; i < ackcount; i ++ ) {
                 SysMessageID sysid = new SysMessageID();
                 sysid.readID(is); 
 
@@ -148,8 +148,8 @@ public class DeliverHandler extends PacketHandler
                     Packet p = new Packet(con.useDirectBuffers());
                     p.fill(realp);
                     p.setConsumerID(id);
-                    sentp[i] = p;
-
+                    sentp[sentPackets] = p;
+                    sentPackets++;
                 }
             }
         } catch (Exception ex) {
@@ -167,9 +167,9 @@ public class DeliverHandler extends PacketHandler
         // OK .. time to set the lbit on the message
         int status = Status.OK;
         try {
-            if (i > 0 ) {
-                assert sentp[i -1] != null;
-                sentp[i-1].setIsLast(true);
+            if (sentPackets > 0 ) {
+                assert sentp[sentPackets-1] != null;
+                sentp[sentPackets-1].setIsLast(true);
 
              } else {
                 reason = "NOT FOUND";
@@ -178,6 +178,13 @@ public class DeliverHandler extends PacketHandler
                
 
         } catch (Exception ex) {
+            logger.logStack(Logger.ERROR,
+                    Globals.getBrokerResources().getString(
+                    BrokerResources.X_INTERNAL_EXCEPTION,
+                    "\tackcnt = " + ackcount + "\n"
+                    + PacketUtil.dumpPacket(msg) + "\n"
+                    + "\t" + PacketUtil.dumpThrowable(ex)), ex);
+            
             assert false;
             reason = ex.getMessage();
             status = Status.ERROR;
@@ -209,7 +216,7 @@ public class DeliverHandler extends PacketHandler
         // 3.5 and beyond, messages are place on the control
         // queue
 
-        for (int j =0; j < i; j ++) {
+        for (int j =0; j < sentPackets; j ++) {
             assert sentp[j] != null;
             if (sentp[j] != null)
                 con.sendControlMessage(sentp[j]);

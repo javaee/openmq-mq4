@@ -60,6 +60,7 @@ import com.sun.messaging.jmq.jmsserver.core.Destination;
 import com.sun.messaging.jmq.jmsserver.core.ConsumerUID;
 import com.sun.messaging.jmq.jmsserver.core.DestinationUID;
 import com.sun.messaging.jmq.jmsserver.core.BrokerAddress;
+import com.sun.messaging.jmq.jmsserver.cluster.ClusterManager;
 import com.sun.messaging.jmq.jmsserver.service.ConnectionUID;
 import com.sun.messaging.jmq.jmsserver.persist.ChangeRecordInfo;
 import com.sun.messaging.jmq.jmsserver.multibroker.Cluster;
@@ -162,14 +163,25 @@ public class ClusterConsumerInfo
             case ProtocolGlobals.G_NEW_INTEREST:
 
             try {
+                ClusterManager cm = Globals.getClusterManager();
+                int csize = 1;
+                if (cm != null) {
+                    csize = cm.getConfigBrokerCount();
+                    if (csize <= 0) {
+                        csize = 1;
+                    }
+                }
                 int i = 0;
                 Iterator itr = consumers.iterator();
                 while (itr.hasNext()) {
                     i++;
                     Consumer c = (Consumer) itr.next();
+                    int prefetch = c.getPrefetchForRemote()/csize;
+                    if (prefetch <= 0) {
+                        prefetch = 1;
+                    }
                     gp.putProp(String.valueOf(c.getConsumerUID().longValue())+":"
-                                              +Consumer.PREFETCH,
-                               new Integer(c.getPrefetch()));
+                                       +Consumer.PREFETCH, new Integer(prefetch));
                     writeConsumer(c, dos);
                     if (!(c instanceof Subscription)) {
                         continue;

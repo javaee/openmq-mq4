@@ -48,7 +48,9 @@ import java.util.*;
 import java.io.*;
 import java.nio.*;
 import com.sun.messaging.jmq.io.GPacket;
+import com.sun.messaging.jmq.jmsserver.Globals;
 import com.sun.messaging.jmq.jmsserver.core.Consumer;
+import com.sun.messaging.jmq.jmsserver.cluster.ClusterManager;
 import com.sun.messaging.jmq.jmsserver.core.Subscription;
 import com.sun.messaging.jmq.jmsserver.core.BrokerAddress;
 import com.sun.messaging.jmq.jmsserver.persist.ChangeRecordInfo;
@@ -161,8 +163,21 @@ public class ClusterSubscriptionInfo
             String clientID = subscription.getClientID();
             gp.putProp("I", new String(clientID));
 
+            ClusterManager cm = Globals.getClusterManager();
+            int csize = 1;
+            if (cm != null) {
+                csize = cm.getConfigBrokerCount();
+                if (csize <= 0) {
+                    csize = 1;
+                }
+            }
+            int prefetch = consumer.getPrefetchForRemote()/csize;
+            if (prefetch <= 0) {
+                prefetch = 1;
+            }
             gp.putProp(String.valueOf(consumer.getConsumerUID().longValue())+":"+
-                       Consumer.PREFETCH, new Integer(consumer.getPrefetch()));
+                       Consumer.PREFETCH, new Integer(prefetch));
+
             gp.putProp("allowsNonDurable", new Boolean(true));
             c.marshalBrokerAddress(c.getSelfAddress(), gp);
 

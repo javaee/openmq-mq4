@@ -866,6 +866,11 @@ public class BrokerResources extends MQResourceBundle {
     final public static String W_UNABLE_DELETE_FILE_IN_DIR = "B2248";
     final public static String W_UNABLE_RENAME_FILE = "B2249";
 
+    final public static String W_MSG_REMOVED_BEFORE_SENDER_COMMIT  = "B2254";
+    final public static String W_PROCCESS_COMMITTED_ACK	 = "B2255";
+
+    final public static String W_EXCEPTION_PROCESS_REMOTE_MSG  = "B2256";
+    final public static String W_PROCESS_REMOTE_MSG_DST_LIMIT  = "B2257";
 
     // 3000-3999 Error Messages
     final public static String E_PERSISTENT_OPEN 	= "B3000";

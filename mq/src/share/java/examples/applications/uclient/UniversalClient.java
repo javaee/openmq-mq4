@@ -1009,7 +1009,7 @@ public class UniversalClient implements UniversalClientConstants,
      * @return Returns the userName.
      */
     public String getUserName() {
-        return connDialogB.getPassword();
+        return connDialogB.getUserName();
     }
 
     /**

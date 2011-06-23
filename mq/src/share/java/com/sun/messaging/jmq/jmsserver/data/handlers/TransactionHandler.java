@@ -591,7 +591,11 @@ public class TransactionHandler extends PacketHandler
 
             case PacketType.END_TRANSACTION:
                 try {
-                    doEnd(msg.getPacketType(), xid, xaFlags, ts, id);
+                    // if the noop flag is set the we don't want to actually
+                    // process the XA_END. See bug 12364646 and XAResourceImpl.end()
+                    Boolean jmqnoop = (Boolean)props.get("JMQNoOp");
+                    if (jmqnoop==null || jmqnoop==false)
+                        doEnd(msg.getPacketType(), xid, xaFlags, ts, id);
                 } catch (Exception ex) {
                     status = Status.ERROR;
                     reason = ex.getMessage();
@@ -1100,7 +1104,9 @@ public class TransactionHandler extends PacketHandler
             SysMessageID sysid = (SysMessageID)plist.get(i);
             PacketReference ref = Destination.get(sysid);
             if (ref == null) {
-                logger.log(Logger.ERROR,BrokerResources.E_INTERNAL_BROKER_ERROR,  "transacted message removed too early "+sysid);
+                logger.log(Logger.WARNING, 
+                    Globals.getBrokerResources().getKString(
+                    BrokerResources.W_MSG_REMOVED_BEFORE_SENDER_COMMIT, sysid));
                 continue;
             }
                      
@@ -1217,19 +1223,18 @@ public class TransactionHandler extends PacketHandler
                         }
                     } catch (Exception ex) {
                         processDone = false;
-                        logger.logStack(Logger.ERROR,BrokerResources.E_INTERNAL_BROKER_ERROR,
-                            "-------------------------------------------" +
-                            "Processing Acknowledgement during committ [" +
-                            sysid + ":" + intid + ":" + con.getConnectionUID()+
-                            "]\nReference is " + (ref == null ? null : ref.getSysMessageID())
-                            + "\n" + com.sun.messaging.jmq.jmsserver.util.PacketUtil.dumpPacket(msg)
-                            + "--------------------------------------------",
-                            ex);
+                        String[] args = { "["+sysid+":"+intid+"]Ref="+
+                                           (ref == null ? null : ref.getSysMessageID()),
+                                          id.toString(), con.getConnectionUID().toString() };
+                        String emsg = Globals.getBrokerResources().getKString(
+                                      BrokerResources.W_PROCCESS_COMMITTED_ACK, args);
+                        logger.logStack(Logger.WARNING, emsg+"\n"+
+                            com.sun.messaging.jmq.jmsserver.util.PacketUtil.dumpPacket(msg)+
+                            "--------------------------------------------", ex);
                     }
                 }
             }
         }
-
         
         if(Globals.isNewTxnLogEnabled())
         {
@@ -1333,8 +1338,8 @@ public class TransactionHandler extends PacketHandler
              }
     }
 
-             TransactionWork getTransactionWork2(List plist, HashMap cmap,
-			HashMap sToCmap) {
+    private TransactionWork getTransactionWork2(List plist, HashMap cmap, HashMap sToCmap) {
+
 		TransactionWork txnWork = new TransactionWork();
 
 		// iterate over messages produced in this transaction
@@ -1343,9 +1348,9 @@ public class TransactionHandler extends PacketHandler
 			SysMessageID sysid = (SysMessageID) plist.get(i);
 			PacketReference ref = Destination.get(sysid);
 			if (ref == null) {
-				logger.log(Logger.ERROR,
-						BrokerResources.E_INTERNAL_BROKER_ERROR,
-						"transacted message removed too early " + sysid);
+				logger.log(Logger.WARNING,
+					Globals.getBrokerResources().getKString(
+					BrokerResources.W_MSG_REMOVED_BEFORE_SENDER_COMMIT, sysid));
 				continue;
 			}
 			try {

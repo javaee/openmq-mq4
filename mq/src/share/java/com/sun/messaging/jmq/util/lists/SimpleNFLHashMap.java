@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2000-2010 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000-2011 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -246,7 +246,7 @@ public class SimpleNFLHashMap extends HashMap implements  EventBroadcaster, Limi
      * Removes the mapping for this key from this map if present.
      *
      * @param  key key whose mapping is to be removed from the map.
-     * @param  reason why this event occured (used during notification).
+     * @param  reason why this event occurred (used during notification).
      * @return previous value associated with specified key, or <tt>null</tt>
      *	       if there was no mapping for key.  A <tt>null</tt> return can
      *	       also indicate that the map previously associated <tt>null</tt>
@@ -288,6 +288,14 @@ public class SimpleNFLHashMap extends HashMap implements  EventBroadcaster, Limi
      *	       <tt>null</tt> with the specified key.
      */
     public Object put(Object key, Object value, Reason reason, boolean overwrite ) {
+        return put(key, value, reason, overwrite, true);
+    }
+
+    public Object put(Object key, Object value, Reason reason, 
+                      boolean overwrite, boolean checklimit) {
+
+        boolean myenforceLimits = enforceLimits && checklimit;
+
         if (hasListeners(EventType.SET_CHANGED_REQUEST))
             notifyChange(EventType.SET_CHANGED_REQUEST, null,
                        value, reason);
@@ -339,14 +347,14 @@ public class SimpleNFLHashMap extends HashMap implements  EventBroadcaster, Limi
             isFull = (maxCapacity > 0 && newSize>= maxCapacity)
                  || (maxByteCapacity > 0 && 
                     newBytes >=maxByteCapacity);
-            if (enforceLimits && maxBytePerObject != UNLIMITED_BYTES &&
+            if (myenforceLimits && maxBytePerObject != UNLIMITED_BYTES &&
                 objsize > maxBytePerObject) {
                 throw new OutOfLimitsException(
                      OutOfLimitsException.ITEM_SIZE_EXCEEDED,
                      new Long(objsize),
                      new Long(maxBytePerObject));
             }
-            if (enforceLimits && maxCapacity != UNLIMITED_CAPACITY &&
+            if (myenforceLimits && maxCapacity != UNLIMITED_CAPACITY &&
                 ((maxCapacity -newSize) < 0)) {
                 throw new OutOfLimitsException(
                      OutOfLimitsException.CAPACITY_EXCEEDED,
@@ -354,7 +362,7 @@ public class SimpleNFLHashMap extends HashMap implements  EventBroadcaster, Limi
                      new Integer(maxCapacity));
             }
     
-            if (enforceLimits && maxByteCapacity != UNLIMITED_BYTES &&
+            if (myenforceLimits && maxByteCapacity != UNLIMITED_BYTES &&
                 ((maxByteCapacity -newBytes) < 0)) {
                 throw new OutOfLimitsException(
                      OutOfLimitsException.BYTE_CAPACITY_EXCEEDED,
@@ -511,7 +519,7 @@ public class SimpleNFLHashMap extends HashMap implements  EventBroadcaster, Limi
      * Removes the mapping for this key from this map if present.
      *
      * @param  key key whose mapping is to be removed from the map.
-     * @param  reason why this event occured (used during notification).
+     * @param  reason why this event occurred (used during notification).
      * @return previous value associated with specified key, or <tt>null</tt>
      *	       if there was no mapping for key.  A <tt>null</tt> return can
      *	       also indicate that the map previously associated <tt>null</tt>

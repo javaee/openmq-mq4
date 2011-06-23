@@ -60,6 +60,7 @@ import com.sun.messaging.jmq.util.GoodbyeReason;
 import com.sun.messaging.jmq.io.Packet;
 import com.sun.messaging.jmq.io.SysMessageID;
 import com.sun.messaging.jmq.jmsserver.Globals;
+import com.sun.messaging.jmq.jmsserver.FaultInjection;
 import com.sun.messaging.jmq.jmsservice.BrokerEvent;
 import com.sun.messaging.jmq.jmsserver.BrokerStateHandler;
 import com.sun.messaging.jmq.jmsserver.service.ConnectionUID;
@@ -176,19 +177,13 @@ protected String INITIALIZEBY = "";
         Globals.IMQ + ".cluster.prefetch.checkMsgRateAtCapacityRatio";
 
     public static int CHECK_MSGS_RATE_AT_DEST_CAPACITY_RATIO = Globals.getConfig().
-        getIntProperty(CHECK_MSGS_RATE_AT_DEST_CAPACITY_RATIO_PROP, 5);
+        getIntProperty(CHECK_MSGS_RATE_AT_DEST_CAPACITY_RATIO_PROP, 50);
 
     public static final String CHECK_MSGS_RATE_FOR_ALL_PROP =
         Globals.IMQ + ".cluster.prefetch.checkMsgRateAll";
 
     public static boolean CHECK_MSGS_RATE_FOR_ALL = Globals.getConfig().
         getBooleanProperty(CHECK_MSGS_RATE_FOR_ALL_PROP, false);
-
-    public static final String MAX_DELAY_NEXT_FETCH_MILLISECS_PROP =
-        Globals.IMQ + ".cluster.prefetch.delayNextMsgFetchMaxMilliSeconds";
-
-    public static int MAX_DELAY_NEXT_FETCH_MILLISECS = Globals.getConfig().
-        getIntProperty(MAX_DELAY_NEXT_FETCH_MILLISECS_PROP, 1000);
 
     private static final long DEFAULT_TIME = 120;
 
@@ -2737,20 +2732,26 @@ protected String INITIALIZEBY = "";
         return size;
     }
 
+    /**
+     * @return -1 if unlimited
+     */
     public long checkDestinationCapacity(PacketReference ref) {
-        long room = -1;
+        long room = -1L;
         int maxc = destMessages.capacity();
-        if (maxc > 0) {
+        if (maxc > 0L) {
             room = maxc - destMessages.size();
-            if (room < 0) {
-                room = 0;
+            if (room < 0L) {
+                room = 0L;
             }
         }
+        if (ref == null) {
+            return room;
+        }
         long maxb = destMessages.byteCapacity();
-        if (maxb > 0) {
+        if (maxb > 0L) {
             long cnt = (maxb - destMessages.byteSize())/ref.byteSize();
-            if (cnt < 0) {
-                cnt = 0;
+            if (cnt < 0L) {
+                cnt = 0L;
             }
             if (cnt < room) {
                 room = cnt;
@@ -3260,7 +3261,11 @@ protected String INITIALIZEBY = "";
         IllegalArgumentException, IllegalStateException {
 
         if (!override) {
-            destMessages.put(ref.getSysMessageID(), ref, r, override);
+            if (!enforcelimit) {
+                destMessages.put(ref.getSysMessageID(), ref, r, override, enforcelimit);
+            } else {
+                destMessages.put(ref.getSysMessageID(), ref, r, override);
+            }
             _messageAdded(ref, r, false);
             return;
         }
@@ -3273,14 +3278,10 @@ protected String INITIALIZEBY = "";
                 ref.overriding();
                 overrideRemote = true;
              }
-             boolean elsave = true;
              if (!enforcelimit) {
-                 elsave = destMessages.getEnforceLimits();
-                 destMessages.enforceLimits(true);
-             }
-             destMessages.put(ref.getSysMessageID(), ref, r, override);
-             if (!enforcelimit) {
-                 destMessages.enforceLimits(elsave);
+                 destMessages.put(ref.getSysMessageID(), ref, r, override, enforcelimit);
+             } else {
+                 destMessages.put(ref.getSysMessageID(), ref, r, override);
              }
         }
         _messageAdded(ref, r, overrideRemote);
@@ -4319,6 +4320,17 @@ protected String INITIALIZEBY = "";
             } finally {
             store.closeEnumeration(msgs);
             }
+
+            if (FaultInjection.getInjection().FAULT_INJECTION) {
+                FaultInjection fi = FaultInjection.getInjection();
+                try {
+                    fi.checkFaultAndThrowBrokerException(
+                    FaultInjection.FAULT_LOAD_DST_1_5, null);
+                } catch (BrokerException e) {
+                    fi.unsetFault(fi.FAULT_LOAD_DST_1_5);
+                    throw e;
+                }
+            }
                
             // now we're sorted, process
             Iterator itr = s.iterator();
@@ -4522,9 +4534,12 @@ protected String INITIALIZEBY = "";
                 }
             }
         } catch (Throwable ex) {
-            logger.logStack(Logger.ERROR, BrokerResources.W_LOAD_DST_FAIL,
-                     getName(), ex);
+            String emsg = Globals.getBrokerResources().getKString(
+                          BrokerResources.W_LOAD_DST_FAIL, getName());
+            logger.logStack(Logger.ERROR, emsg, ex);
+            loaded = true;
             unload(true);
+            throw new BrokerException(emsg, ex);
         }
         destMessages.enforceLimits(enforceLimit);
         loaded = true;
@@ -5942,9 +5957,6 @@ protected String INITIALIZEBY = "";
                     } else if (name.equals(CHECK_MSGS_RATE_FOR_ALL_PROP)) {
                           CHECK_MSGS_RATE_FOR_ALL = cfg.getBooleanProperty(
                               CHECK_MSGS_RATE_FOR_ALL_PROP);
-                    } else if (name.equals(MAX_DELAY_NEXT_FETCH_MILLISECS_PROP)) {
-                          MAX_DELAY_NEXT_FETCH_MILLISECS = cfg.getIntProperty(
-                              MAX_DELAY_NEXT_FETCH_MILLISECS_PROP);
                     }
                     return true;
                 }
@@ -6005,7 +6017,6 @@ protected String INITIALIZEBY = "";
         cfg.addListener(DEBUG_LISTS_PROP, cl);
         cfg.addListener(CHECK_MSGS_RATE_AT_DEST_CAPACITY_RATIO_PROP, cl);
         cfg.addListener(CHECK_MSGS_RATE_FOR_ALL_PROP, cl);
-        cfg.addListener(MAX_DELAY_NEXT_FETCH_MILLISECS_PROP, cl);
 
         // now configure the system based on the properties
         setMaxSize(cfg.getSizeProperty(SYSTEM_MAX_SIZE));
@@ -6061,6 +6072,10 @@ protected String INITIALIZEBY = "";
         message_max_count = messages;
     }
 
+    public static long getMaxMessages()
+    {
+       return message_max_count;
+    }
 
     /**
      * sets the maximum size of all messages (total = swap & memory)

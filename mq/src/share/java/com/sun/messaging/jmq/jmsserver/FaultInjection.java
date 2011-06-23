@@ -133,6 +133,8 @@ public class FaultInjection extends RuntimeFaultInjection
      public static final String FAULT_SEND_MSG_2 = "msg.send.2";
      public static final String FAULT_SEND_MSG_3 = "msg.send.3";
 
+     public static final String FAULT_LOAD_DST_1_5 = "load.dst.1_5";
+
      // on taking over
      public static final String FAULT_HA_TAKEOVER_SWITCH_SS_EXCEPTION = "ha.takeover.switch_ss.exception";
      public static final String FAULT_HA_TAKEOVER_SWITCH_SS_HALT = "ha.takeover.switch_ss.halt";

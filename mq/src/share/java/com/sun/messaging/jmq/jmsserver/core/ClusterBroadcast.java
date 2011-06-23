@@ -84,8 +84,11 @@ public interface ClusterBroadcast {
     public static final String RC_RELEASE_MSG_INACTIVE = "RC_RELEASE_MSG_INACTIVE";
     public static final String RB_RELEASE_MSG_ORPHAN = "RB_RELEASE_MSG_ORPHAN";
     public static final String MSG_NOT_SENT_TO_REMOTE = "MSG_NOT_SENT_TO_REMOTE";
-    public static final String MSG_REMOTE_REJECTED = "MSG_REMOTE_REJECTED";
-    public static final String MSG_OUT_TIME_MILLIS = "MSG_OUT_TIME_MILLIS";
+
+    //obsolete
+    public static final String MSG_REMOTE_REJECTED = "MSG_REMOTE_REJECTED"; //4.5
+    //obsolete
+    public static final String MSG_OUT_TIME_MILLIS = "MSG_OUT_TIME_MILLIS"; //4.5
 
     public Protocol getProtocol();
 

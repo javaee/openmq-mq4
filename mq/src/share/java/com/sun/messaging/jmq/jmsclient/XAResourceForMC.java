@@ -543,12 +543,15 @@ public class XAResourceForMC implements XAResource, XAResourceForJMQ {
         
         if (ResourceAdapter.isRevert6882044()) {
         	// revert to pre-6882044 behaviour and forward all events to broker
-        	sendEndToBroker(flags, jmqXid);
+        	sendEndToBroker(flags, false, jmqXid);
         } else {
-	        // now decide whether to send an END packet to the broker on the basis of the resource state
+	        // now decide based on the resource state whether to send a real
+                // END packet, a noop END packet or to ignore the END packet altogether.
 	        if (resourceState==COMPLETE){
-	        	// only send an END packet to the broker when all joined resources are complete
-	        	// this works around Glassfish issue 7118
+	        	// This XAResource is complete. Send a real END packet if all
+                        // other resources joined to this txn are complete, otherwise
+                        // send a noop END packet to ensure that work associated with
+                        // this XAResource has completed on the broker. See bug 12364646.
 	        	boolean allComplete = true;
 	       	 	XAResourceForJMQ[] resources = XAResourceMapForRAMC.getXAResources(jmqXid,true);
 	       	 	for (int i = 0; i < resources.length; i++) {
@@ -558,12 +561,19 @@ public class XAResourceForMC implements XAResource, XAResourceForJMQ {
 	       	 		}
 	       	 	}
 	       	 	if (allComplete){
-	       	        sendEndToBroker(flags, jmqXid);
-	       	 	}
+                            // All resources complete.  Send real END packet.
+                            sendEndToBroker(flags, false, jmqXid);
+	       	 	} else {
+                            // One or more resources are not complete. Send a noop END
+                            // packet to the broker.
+                            sendEndToBroker(flags, true, jmqXid);
+                        }
 	        } else if (resourceState==FAILED){
-	            sendEndToBroker(flags, jmqXid);
+                    // This resource has failed.  Send a real END packet regardless
+                    // of the state of any other joined resources.
+	            sendEndToBroker(flags, false, jmqXid);
 	        } else if (resourceState==INCOMPLETE){
-	        	// don't send the END to the broker
+                    // Don't send the END to the broker. See Glassfish issue 7118.
 	        }
         }
         
@@ -574,11 +584,11 @@ public class XAResourceForMC implements XAResource, XAResourceForJMQ {
         }
     }
 
-	private void sendEndToBroker(int flags, JMQXid jmqXid) throws XAException {
+    private void sendEndToBroker(int flags, boolean jmqnoop, JMQXid jmqXid) throws XAException {
 		try {
             //System.out.println("MQRA:XAR4RA:end:sending 0L:tid="+transactionID+" xid="+jmqXid.toString());
         	
-        	epConnection.protocolHandler.endTransaction(0L, flags, jmqXid);
+        	epConnection.protocolHandler.endTransaction(0L, jmqnoop, flags, jmqXid);
         		
             SessionAdapter sa = mc.getConnectionAdapter().getSessionAdapter();
             if (sa != null) {

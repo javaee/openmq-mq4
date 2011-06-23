@@ -113,6 +113,21 @@ public class XAResourceImpl implements XAResource, XAResourceForJMQ {
     public static final Integer XA_PREPARE = Integer.valueOf(Transaction.TRANSACTION_PREPARED);
     public static final Integer XA_ROLLBACK_ONLY = Integer.valueOf(Transaction.TRANSACTION_ROLLBACK_ONLY);
     
+    /** 
+     * Possible states of this XAResource
+     */
+    public static final int CREATED    = 0; // after first creation, or after commit() or rollback()
+    public static final int STARTED    = 1; // after start() called
+    public static final int FAILED     = 2; // after end(fail) called
+    public static final int INCOMPLETE = 3; // after end(suspend) called
+    public static final int COMPLETE   = 4; // after end (success) called
+    public static final int PREPARED   = 5; // after prepare() called
+    
+    /**
+     * State of this XAresource
+     */
+    private int resourceState = CREATED;
+    
     //use this property to turn off xa transaction tracking
     public static boolean turnOffXATracking = Boolean.getBoolean("imq.ra.turnOffXATracking");
     //set to true by default - track xa transaction state
@@ -261,6 +276,7 @@ public class XAResourceImpl implements XAResource, XAResourceForJMQ {
         	XAResourceImpl[] resources = XAResourceMap.getXAResources(jmqXid,throwExceptionIfNotFound);
             for (int i = 0; i < resources.length; i++) {
             	XAResourceImpl xari = resources[i];
+                xari.clearTransactionInfo();
             	xari.finishCommit();
 			}
             XAResourceMap.unregister(jmqXid);
@@ -275,6 +291,7 @@ public class XAResourceImpl implements XAResource, XAResourceForJMQ {
     		
     		// unregister resource to avoid memory leak
     		XAResourceMap.unregisterResource(this, currentJMQXid);
+                clearTransactionInfo();
     		currentJMQXid=null;
     	}
         connectionConsumer = null;
@@ -335,18 +352,61 @@ public class XAResourceImpl implements XAResource, XAResourceForJMQ {
     	
         //convert to jmq xid
         JMQXid jmqXid = new JMQXid(foreignXid);
-
-        if (Debug.debug) {
-            Debug.println("*=*=*=*=*=*=*=*=*=*=XAR:end:flags="+flags+"\txid=\n"+jmqXid.toString());
+            
+        if (_connection._isClosed()) {
+            //Debug.println("*=*=*=*=*=*=*=*=*=*=XAR:end:XAException");
+            XAException xae = new XAException(XAException.XAER_RMFAIL);
+            throw xae;
         }
         
+        // update the resource state
+        if (isFail(flags)){
+            resourceState=FAILED;
+        } else if (isSuspend(flags)){
+            resourceState=INCOMPLETE;
+        } else {
+            resourceState=COMPLETE;
+        }
+            
+        // now decide based on the resource state whether to send a real
+        // END packet, a noop END packet or to ignore the END packet altogether.
+        if (resourceState==COMPLETE) {
+            // This XAResource is complete. Send a real END packet if all
+            // other resources joined to this txn are complete, otherwise
+            // send a noop END packet to ensure that work associated with
+            // this XAResource has completed on the broker. See bug 12364646.
+            boolean allComplete = true;
+            XAResourceImpl[] resources = XAResourceMap.getXAResources(jmqXid,false);
+            for (int i = 0; i < resources.length; i++) {
+                XAResourceImpl xari = resources[i];
+                if (!xari.isComplete()){
+                    allComplete = false;
+                }
+            }
+
+            if (allComplete){
+                // All resources complete.  Send real END packet.
+                sendEndToBroker(flags, false, jmqXid);
+            } else {
+                // One or more resources are not complete. Send a noop END
+                // packet to the broker.
+                sendEndToBroker(flags, true, jmqXid);
+            }
+        } else if (resourceState==FAILED){
+            // This resource has failed.  Send a real END packet regardless
+            // of the state of any other joined resources.
+            sendEndToBroker(flags, false, jmqXid);
+        } else if (resourceState==INCOMPLETE){
+            // Don't send the END to the broker. See Glassfish issue 7118.
+        }
+    }
+    
+    private void sendEndToBroker(int flags, boolean jmqnoop, JMQXid jmqXid) throws XAException {
         try {
-            //Debug.println("*=*=*=*=*=*=*=*=*=*=XAR:end:using 0 as txnID");
-            //End **has** to be using the same conn/sess as start
-            //Debug.println("*=*=*=*=*=*=*=*=*=*=XAR:end:using real txnID");
-            _session.transaction.endXATransaction(flags, jmqXid);
+            //System.out.println("MQRA:XAR4RA:end:sending 0L:tid="+transactionID+" xid="+jmqXid.toString());
+            _connection.getProtocolHandler().endTransaction(0L, jmqnoop, flags, jmqXid);
         } catch (JMSException jmse) {
-            //Debug.println("*=*=*=*=*=*=*=*=*=*=XAR:endXAException");
+            //Debug.println("*=*=*=*=*=*=*=*=*=*=XAR:end:XAException");
             Debug.printStackTrace(jmse);
             XAException xae = new XAException(XAException.XAER_RMFAIL);
             xae.initCause(jmse);
@@ -378,6 +438,7 @@ public class XAResourceImpl implements XAResource, XAResourceForJMQ {
         	if (currentJMQXid.equals(jmqXid)){
         		currentJMQXid=null;
                 connectionConsumer = null;
+                clearTransactionInfo();
         	}
         }
     }
@@ -453,7 +514,7 @@ public class XAResourceImpl implements XAResource, XAResourceForJMQ {
     	if (SessionImpl.sessionLogger.isLoggable(Level.FINE)){
     		long myBrokerSessionID = getBrokerSessionID();
     		long otherBrokerSessionID = xaResource.getBrokerSessionID();
-  			SessionImpl.sessionLogger.log(Level.FINE, "myBrokerSessionID="+myBrokerSessionID+" herBrokerSessionID="+otherBrokerSessionID+" isSameRM()="+result);
+  			SessionImpl.sessionLogger.log(Level.FINE, "myBrokerSessionID="+myBrokerSessionID+" otherBrokerSessionID="+otherBrokerSessionID+" isSameRM()="+result);
     	}
     	
     	return result;
@@ -603,6 +664,10 @@ public class XAResourceImpl implements XAResource, XAResourceForJMQ {
 
             throw xae;
         } 
+        
+        // update the resource state
+        resourceState=PREPARED;
+        
         return result;
     }
 
@@ -754,6 +819,7 @@ public class XAResourceImpl implements XAResource, XAResourceForJMQ {
             for (int i = 0; i < resources.length; i++) {
             	XAResourceImpl xari = resources[i];
             	xari.finishRollback();
+                xari.clearTransactionInfo();
 			}
             XAResourceMap.unregister(jmqXid);
         	_session.releaseInSyncState();
@@ -863,25 +929,28 @@ public class XAResourceImpl implements XAResource, XAResourceForJMQ {
         	Debug.println("*=*=*=*=*=*=*=*=*=*=XAR:start:flags="+flags+"\txid=\n"+jmqXid.toString());
         }
         
-        try {
-            _session.switchOnXATransaction();
-            _transaction = _session.transaction;
-            _transaction.startXATransaction(flags, jmqXid);
+            try {
+                _session.switchOnXATransaction();
+                _transaction = _session.transaction;
+                _transaction.startXATransaction(flags, jmqXid);
             
     	    if (!isResume(flags)){
-    	    	XAResourceMap.register(jmqXid, this, isJoin(flags));
+                XAResourceMap.register(jmqXid, this, isJoin(flags));
     	    }
     	    
-    		currentJMQXid=jmqXid;
-        } catch (JMSException jmse) {
-            //Debug.println("*=*=*=*=*=*=*=*=*=*=XAR:startXAException");
-            Debug.printStackTrace(jmse);
-            XAException xae = new XAException(XAException.XAER_RMFAIL);
-            xae.initCause(jmse);
-            throw xae;
+                currentJMQXid=jmqXid;
+            } catch (JMSException jmse) {
+                //Debug.println("*=*=*=*=*=*=*=*=*=*=XAR:startXAException");
+                Debug.printStackTrace(jmse);
+                XAException xae = new XAException(XAException.XAER_RMFAIL);
+                xae.initCause(jmse);
+                throw xae;
+            }
+            
+            // update the resource state
+            resourceState=STARTED;
         }
-    }
-
+        
     /**
       * Ends a recovery scan.
       */
@@ -1344,17 +1413,14 @@ private void HARollback(JMQXid jmqXid, boolean redeliverMsgs) throws JMSExceptio
     	return((flags & XAResource.TMRESUME) == XAResource.TMRESUME);
     }
 
-	// required by XAResourceForJMQ interface
-    public void clearTransactionInfo() {
-		throw new UnsupportedOperationException("Not supported");	
-	}
-
-	// required by XAResourceForJMQ interface
-	public boolean isComplete() {
-		// not used in this implementation
-		throw new UnsupportedOperationException("Not supported");
-	}
-	
+    public boolean isComplete() {
+	return this.resourceState==COMPLETE;
+    }
+    
+    public void clearTransactionInfo(){
+    	this.resourceState=CREATED;
+    }
+    
     // Used for debugging only
     private String printXid(Xid foreignXid){
     	return ("(GlobalTransactionID="+foreignXid.getGlobalTransactionId()) +

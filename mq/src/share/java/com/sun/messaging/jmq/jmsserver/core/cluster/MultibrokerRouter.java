@@ -63,6 +63,7 @@ import java.util.Set;
 import java.util.Vector;
 
 import com.sun.messaging.jmq.io.Packet;
+import com.sun.messaging.jmq.io.Status;
 import com.sun.messaging.jmq.io.SysMessageID;
 import com.sun.messaging.jmq.jmsserver.DMQ;
 import com.sun.messaging.jmq.jmsserver.FaultInjection;
@@ -110,17 +111,13 @@ public class MultibrokerRouter implements ClusterRouter
     private static final String ENFORCE_REMOTE_DEST_LIMIT_PROP = 
             Globals.IMQ + ".cluster.enforceRemoteDestinationLimit";
     private static boolean ENFORCE_REMOTE_DEST_LIMIT =
-               Globals.getConfig().getBooleanProperty(
-               ENFORCE_REMOTE_DEST_LIMIT_PROP, true);
+        Globals.getConfig().getBooleanProperty( ENFORCE_REMOTE_DEST_LIMIT_PROP, false);
 
-    private static final String CHECK_MSGRATE_ON_ARRIVAL_PROP = 
-            Globals.IMQ + ".cluster.prefetch.checkMsgRateOnRemoteMsgArrival";
-    private static boolean  CHECK_MSGRATE_ON_ARRIVAL =
-               Globals.getConfig().getBooleanProperty(
-               CHECK_MSGRATE_ON_ARRIVAL_PROP, false);
+    //obsolete private property
+    private static String ROUTE_REJECTED_REMOTE_MSG =
+        Globals.IMQ+".cluster.routeRejectedRemoteMsg"; //4.5
 
-    private static boolean ROUTE_REJECTED_REMOTE_MSG = Boolean.getBoolean(
-                                 "imq.cluster.routeRejectedRemoteMsg");
+    private ArrayList loggedFullDestsOnHandleJMSMsg = new ArrayList();
 
     ClusterBroadcast cb = null;
     Protocol p = null;
@@ -199,10 +196,6 @@ public class MultibrokerRouter implements ClusterRouter
         ArrayList targetVector = new ArrayList();
         ArrayList ignoreVector = new ArrayList();
 
-        HashMap ignoreProps = null;
-        HashMap ignoreUnroutableProp = new HashMap();
-        ignoreUnroutableProp.put(ClusterBroadcast.MSG_REMOTE_REJECTED, "true");
-
         Iterator itr = consumers.iterator();
         while (itr.hasNext()) {
             ConsumerUID uid = (ConsumerUID)itr.next();
@@ -254,7 +247,6 @@ public class MultibrokerRouter implements ClusterRouter
             }
         }
         List dsts = null;
-        ArrayList cleanupDests = new ArrayList();
         try {
             if (ref == null)  {
                 return;
@@ -280,102 +272,49 @@ public class MultibrokerRouter implements ClusterRouter
                     ref.setNeverStore(true);
                     // OK .. we dont need to route .. its already happened
                     ref.store(targetVector);
-                    boolean enforcelimit = false;
                     itr = dsts.iterator();
                     while (itr.hasNext()) {
                         DestinationUID did = (DestinationUID)itr.next();
                         Destination d = Destination.getDestination(did);
-                        if (!hasflowcontrol) {
-                            enforcelimit = true; 
-                        } else {
-                            String k = ENFORCE_REMOTE_DEST_LIMIT_PROP+did.getLongString();
-                            if (Globals.getConfig().getProperty(k) == null) {
-                                enforcelimit = ENFORCE_REMOTE_DEST_LIMIT;
-                            } else {
-                                enforcelimit = Globals.getConfig().getBooleanProperty(k);
-                            }
-                        }
                         if (DEBUG) {
-                            logger.log(logger.INFO, "Route remote message "+ref+ " sent from "+sender+
-                                " to destination(s) "+did+" for consumer(s) "+targetVector+" hasflowcontrol="+
-                                hasflowcontrol+", enforcelimit="+enforcelimit); 
+                            logger.log(logger.INFO, "Route remote message "+ref+
+                                " sent from "+sender+" to destination(s) "+did+
+                                " for consumer(s) "+targetVector+" hasflowcontrol="+
+                                 hasflowcontrol+", enforcelimit="+ENFORCE_REMOTE_DEST_LIMIT); 
                         }
-                        if ((Destination.CHECK_MSGS_RATE_FOR_ALL ||
-                             !ref.getDestinationUID().isQueue()) && !ROUTE_REJECTED_REMOTE_MSG) {
-                            Consumer cs = null;
-                            Subscription sub = null;
-                            Iterator csitr = targetVector.iterator();
-                            while (csitr.hasNext()) {
-                                cs = (Consumer)csitr.next();
-                                sub = cs.getSubscription();
-                                if (Destination.CHECK_MSGS_RATE_FOR_ALL ||
-                                    (CHECK_MSGRATE_ON_ARRIVAL &&
-                                     sub != null && sub.getShared() && !sub.isDurable())) {
-                                    int ret = cs.checkIfMsgsInRateGTOutRate(d);
-                                    if (ret == 0) {
-                                        ignoreVector.addAll(targetVector); 
-                                        targetVector.clear();
-                                        ignoreProps = ignoreUnroutableProp;
-                                        break;
-                                    }
-                                }
-                            }
-                            if (targetVector.isEmpty()) {
-                                break;
-                            }
-                        }
-                        if (!d.queueMessage(ref, false, enforcelimit)) { // add to message count
-                            ignoreVector.addAll(targetVector); 
-                            if (!ROUTE_REJECTED_REMOTE_MSG) {
-                                targetVector.clear();
-                            }
-                            break;
-                        } else {
-                            cleanupDests.add(d);
-                        }
+                        //add to message count
+                        d.queueMessage(ref, false, ENFORCE_REMOTE_DEST_LIMIT);
                     }
                 } else if (exists) {
                     ref.add(targetVector);
                 }
             }
-        } catch (IOException ex) {
-            logger.logStack(logger.INFO,"Internal Exception ", ex);
-            ignoreVector.addAll(targetVector); 
-            if (!ROUTE_REJECTED_REMOTE_MSG) {
-                targetVector.clear();
-                ignoreProps = ignoreUnroutableProp;
-            }
-        } catch (BrokerException ex) {
-            // unable to store
-            ignoreVector.addAll(targetVector); 
-            if (!ROUTE_REJECTED_REMOTE_MSG) {
-                targetVector.clear();
-                ignoreProps = ignoreUnroutableProp;
-            }
-        }
-
-        if (targetVector.isEmpty()) {
-            Destination d = null;
-            itr = cleanupDests.iterator();
-            while (itr.hasNext()) {
-                try {
-                    d = (Destination)itr.next();
-                    d.removeMessage(ref.getSysMessageID(), null);
-                } catch (Throwable e) {
-                    Object[] args = { ref.getSysMessageID(), 
-                                      (sender == null ? "":sender), 
-                                      d, targetVector.toString(), e.toString() };
-                    String emsg = Globals.getBrokerResources().getKString(
-                                  BrokerResources.W_UNABLE_CLEANUP_REMOTE_MSG_ON_ROUTE, args);
-                    if (DEBUG) {
-                        logger.logStack(Logger.WARNING,  emsg, e);
-                    } else {
-                        logger.log(Logger.WARNING, emsg); 
+        } catch (Exception ex) {
+            Object[] args = { (ref == null ? "null":ref), sender, targetVector };
+            String emsg = Globals.getBrokerResources().getKString(
+                BrokerResources.W_EXCEPTION_PROCESS_REMOTE_MSG, args);
+            if (!(ex instanceof BrokerException)) {
+                logger.logStack(logger.WARNING, emsg, ex);
+            } else {
+                BrokerException be = (BrokerException)ex;
+                int status = be.getStatusCode();
+                if (status != Status.RESOURCE_FULL &&
+                    status != Status.ENTITY_TOO_LARGE) {
+                    logger.logStack(logger.WARNING, emsg, ex);
+                } else {
+                    Object[] args1 = { sender, targetVector };
+                    emsg = Globals.getBrokerResources().getKString(
+                        BrokerResources.W_PROCESS_REMOTE_MSG_DST_LIMIT, args1);
+                    int level = Logger.DEBUG;
+                    if (ref == null ||
+                        !loggedFullDestsOnHandleJMSMsg.contains(ref.getDestinationUID())) {
+                        level = Logger.WARNING;
+                        loggedFullDestsOnHandleJMSMsg.add(ref.getDestinationUID());
                     }
+                    logger.log(level, emsg+(level == Logger.DEBUG ? ": "+ex.getMessage():""));
                 }
             }
-            cleanupDests.clear();
-       }
+        }
 
         // Now deliver the message...
         String debugString = "\n";
@@ -431,43 +370,14 @@ public class MultibrokerRouter implements ClusterRouter
                 o = ignoreVector.get(i);
                 if (o instanceof Consumer) { 
                     cuid = ((Consumer)o).getConsumerUID(); 
-                    interest = (Consumer)o;
                 } else {
                     cuid = (ConsumerUID)o;
-                    interest = Consumer.getConsumer(cuid);
-                }
-                if (interest != null && dsts != null && ignoreProps == ignoreUnroutableProp) {
-                    long  msgoutt = 0, t = 0;
-                    Destination d = null;
-                    Iterator ditr = dsts.iterator();
-                    while (ditr.hasNext()) {
-                        d = Destination.findDestination((DestinationUID)ditr.next());
-                        if (d == null)  {
-                            continue;
-                        }
-                        t = interest.getMsgOutTimeMillis(d);
-                        if (t > msgoutt) {
-                            msgoutt = t;
-                        }
-                    }
-                    if (msgoutt > 0) {
-                        ignoreProps.put(ClusterBroadcast.MSG_OUT_TIME_MILLIS,
-                                        new Long(msgoutt));
-                    }
                 }
                 cb.acknowledgeMessage(sender, ref.getSysMessageID(), cuid,
-                         ClusterBroadcast.MSG_IGNORED, ignoreProps, false);
+                         ClusterBroadcast.MSG_IGNORED, null, false);
             } catch (Exception e) {
                 logger.logStack(logger.WARNING, "sendMessageAck IGNORE failed to "+sender, e);
-            } finally {
-                if (!ROUTE_REJECTED_REMOTE_MSG) {
-                    if (interest != null && sendMsgDeliveredAck) {
-                        ref.setBrokerAddress(sender);
-                        interest.throttleRemoteFlow(ref);
-                     }
-                }
-            }
-
+            } 
             if (DEBUG) {
                 debugString = debugString + "\t" + ignoreVector.get(i) + "\n";
             }
@@ -523,8 +433,9 @@ class BrokerConsumers implements Runnable, com.sun.messaging.jmq.util.lists.Even
                Globals.getConfig().getBooleanProperty(
                Globals.IMQ + ".cluster.debug.msg");
 
-    private static boolean REDELIVER_REMOTE_REJECTED = !Boolean.getBoolean(
-                                 "imq.cluster.disableRedeliverRemoteRejectedMsg");
+    //obsolete private property
+    private static String REDELIVER_REMOTE_REJECTED = 
+        Globals.IMQ+".cluster.disableRedeliverRemoteRejectedMsg"; //4.5
 
     static {
         if (!DEBUG) DEBUG = DEBUG_CLUSTER_TXN || DEBUG_CLUSTER_MSG;
@@ -1161,42 +1072,6 @@ class BrokerConsumers implements Runnable, com.sun.messaging.jmq.util.lists.Even
                 return true;
             }
 
-            if (REDELIVER_REMOTE_REJECTED && optionalProps != null && 
-                optionalProps.get(ClusterBroadcast.MSG_REMOTE_REJECTED) != null &&
-                ((String)optionalProps.get(ClusterBroadcast.MSG_REMOTE_REJECTED)).equals("true")) {
-                ackEntry entry = new ackEntry(sysid, cuid, null);
-                ackEntry value = null;
-                if (DEBUG) {
-                    logger.log(Logger.INFO, "Cleanup remote rejected message: "+ value);
-                }
-                Long msgoutt = (Long)optionalProps.get(ClusterBroadcast.MSG_OUT_TIME_MILLIS);
-                synchronized(removeConsumerLock) {
-                    Consumer c = (Consumer)consumers.get(cuid);
-                    if (c != null) {
-                        synchronized(deliveredMessages) {
-                            value = (ackEntry)deliveredMessages.remove(entry);
-                        }
-                        if (value == null) {
-                            return true;
-                        }
-                        PacketReference ref =value.getReference();
-                        if (ref == null || ref.isDestroyed() || ref.isInvalid()) {
-                            return true;
-                        }
-                        ref.removeInDelivery((c.getStoredConsumerUID() == null ?
-                                  c.getConsumerUID():c.getStoredConsumerUID()));
-                        ref.removeDelivered(c.getStoredConsumerUID(), true);
-                        c.pause("start remote redeliver");
-                        if (msgoutt != null) {
-                            c.delayNextFetchForRemote(msgoutt.longValue());
-                        }
-                        c.routeMessage(ref, true);
-                        c.resume("end remote redeliver");
-                    }
-                }
-                return true;
-            }
-
            /* dont do anything .. we will soon be closing the consumer and that
             * will cause the right things to happen 
             */
@@ -1823,7 +1698,9 @@ class BrokerConsumers implements Runnable, com.sun.messaging.jmq.util.lists.Even
                 int mp = (d == null ? -1 : d.getMaxPrefetch());
                 if (mp <= 0 || mp > BTOBFLOW) mp = BTOBFLOW;
                 int prefetch = c.getRemotePrefetch();
-                if (prefetch <= 0 || prefetch > mp) prefetch = mp;
+                if (prefetch <= 0 || prefetch > mp) {
+                    prefetch = mp;
+                }
                 Subscription sub = c.getSubscription();
                 if (sub != null && sub.getShared()) {
                     prefetch = 1;

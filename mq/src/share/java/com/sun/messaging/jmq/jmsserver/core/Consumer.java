@@ -298,6 +298,42 @@ public class Consumer implements EventBroadcaster,
         return prefetch;
     }
 
+    public int getPrefetchForRemote()
+    {
+        int fetch = prefetch;
+        if (Destination.getMaxMessages() > 0) {
+            long room = (Destination.getMaxMessages() - Destination.totalCount());
+            if (room <= 0) {
+                room = 1L;
+            }
+            if (fetch > room) {
+                fetch = (int)room;
+            }
+        }
+        long room = -1L, m = -1L;
+        Destination d = null;
+        Iterator itr =  getDestinations().iterator();
+        while (itr.hasNext()) {
+            d = (Destination)itr.next();
+            m = d.checkDestinationCapacity(null);
+            if (m < 0L) {
+                continue;
+            }
+            if (room < 0L || room > m) {
+                room = m;
+            }
+        }
+        if (room == 0) {
+            room = 1L;
+        }
+        if (room > 0L) {
+            if (fetch > room) {
+                fetch = (int)room;
+            }
+        }
+        return fetch;
+    }
+
     public void setSubscription(Subscription sub)
     {
         ackMsgsOnDestroy = false;
@@ -675,7 +711,6 @@ public class Consumer implements EventBroadcaster,
         logger = Globals.getLogger();
         remotePendingResumes = new ArrayList();
         lastDestMetrics = new Hashtable();
-        delayNextFetchForRemote = 0;
         localConsumerCreationReady = false;
         parent = null;
         busy = false;
@@ -971,10 +1006,6 @@ public class Consumer implements EventBroadcaster,
     }
 
 
-    public void delayNextFetchForRemote(long millsecs) {
-        delayNextFetchForRemote = millsecs;
-    }
-
     public PacketReference getAndFillNextPacket(Packet p) 
     {
         PacketReference ref = null;
@@ -983,24 +1014,7 @@ public class Consumer implements EventBroadcaster,
             checkState(null);
             return null;
         }
-        if (Destination.MAX_DELAY_NEXT_FETCH_MILLISECS > 0 &&
-            delayNextFetchForRemote >0 && !paused && valid) {
-            long delays = delayNextFetchForRemote/2;
-            if (delays > 0) {
-                long sleeptime = (delays > Destination.MAX_DELAY_NEXT_FETCH_MILLISECS ?
-                                  Destination.MAX_DELAY_NEXT_FETCH_MILLISECS:delays);
-                long sleep1 = (Destination.MAX_DELAY_NEXT_FETCH_MILLISECS < 5 ?
-                               Destination.MAX_DELAY_NEXT_FETCH_MILLISECS:5);
-                long slept = 0;
-                while (slept < sleeptime && !paused && valid) {
-                    try {
-                        Thread.sleep(sleep1);
-                        slept +=sleep1;
-                    } catch (Exception e) {}
-                    delayNextFetchForRemote = 0;
-                }
-            }
-        }
+
         if (!valid) {
             return null;
         }
@@ -1259,7 +1273,6 @@ public class Consumer implements EventBroadcaster,
 
     transient private ArrayList remotePendingResumes = new ArrayList();
     transient private Hashtable lastDestMetrics = new Hashtable();
-    transient private long delayNextFetchForRemote = 0;
 
     //return 0, yes; 1 no previous sampling, else no
     public int checkIfMsgsInRateGTOutRate(Destination d) {
@@ -1335,21 +1348,6 @@ public class Consumer implements EventBroadcaster,
             flowCount = 0;
             flowPaused = false;
             checkState(null); 
-        }
-    }
-
-    public void throttleRemoteFlow(PacketReference ref) {
-        synchronized (remotePendingResumes) {
-            HashMap props = new HashMap();
-            props.put(Consumer.PREFETCH, new Integer(1));
-            try {
-                Globals.getClusterBroadcast().acknowledgeMessage(
-                    ref.getAddress(), ref.getSysMessageID(),
-                    uid, ClusterBroadcast.MSG_DELIVERED, props, false);
-            } catch (BrokerException ex) {
-                remotePendingResumes.add(ref);
-                logger.log(Logger.DEBUG,"Can not send DELIVERED ack " + " received ", ex);
-            }
         }
     }
 
@@ -1652,7 +1650,6 @@ public class Consumer implements EventBroadcaster,
             }
         }
         ht.put("lastDestMetrics", v2);
-        ht.put("delayNextFetchForRemote", String.valueOf(delayNextFetchForRemote));
         return ht;
     }
 
