@@ -446,7 +446,7 @@ class BrokerConsumers implements Runnable, com.sun.messaging.jmq.util.lists.Even
     Logger logger = Globals.getLogger();
     Protocol protocol = null;
     boolean valid = true;
-    Set activeConsumers= Collections.synchronizedSet(new HashSet());
+    Set activeConsumers= Collections.synchronizedSet(new LinkedHashSet());
     Map consumers= Collections.synchronizedMap(new HashMap());
     Map listeners = Collections.synchronizedMap(new HashMap());
 
