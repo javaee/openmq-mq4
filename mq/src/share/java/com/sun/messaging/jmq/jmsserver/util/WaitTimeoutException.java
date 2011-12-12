@@ -39,25 +39,32 @@
  */
 
 /*
- * @(#)mqversion.h	1.18 10/17/07
  */ 
+ 
+package com.sun.messaging.jmq.jmsserver.util;
 
-#ifndef MQ_VERSION_H
-#define MQ_VERSION_H
 
-/*
- * MQ version constants 
+import com.sun.messaging.jmq.io.Status;
+/**
+ * this is the sub-class for exceptions thrown by the broker
  */
 
-
-#define MQ_NAME    "Oracle GlassFish(tm) Server Message Queue"
-
-#define MQ_VERSION "4.5.2"
-#define MQ_VMAJOR   4
-#define MQ_VMINOR   5
-#define MQ_VMICRO   2 
-#define MQ_SVCPACK  0
-#define MQ_URELEASE 0
-
-
-#endif /* MQ_VERSION_H */
+public class WaitTimeoutException extends BrokerException
+{
+    /**
+     * create an exception with a message but no root cause
+     *
+     * @param msg the detail message
+     */
+    public WaitTimeoutException(String msg) {
+        super(msg, null, null, Status.TIMEOUT);
+    }
+    /**
+     * create an exception with a message but no root cause
+     *
+     * @param msg the detail message
+     */
+    public WaitTimeoutException(String msg, Throwable thr) {
+        super(msg, null, thr, Status.TIMEOUT);
+    }
+}

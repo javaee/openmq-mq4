@@ -122,6 +122,9 @@ public class TransactionList implements ClusterListener
     public static int TXN_REAPLIMIT = Globals.getConfig().getIntProperty(
                                       Globals.IMQ + ".txn.reapLimit", 500);
 
+    public static int TXN_REAPLIMIT_OVERTHRESHOLD = Globals.getConfig().getIntProperty(
+                            Globals.IMQ + ".txn.reapLimitOverThreshold", 100); //in percent
+
     public static final String XA_TXN_DETACHED_TIMEOUT_PROP = 
                          Globals.IMQ+".transaction.detachedTimeout"; //in secs
     public static final String XA_TXN_DETACHED_RETAINALL_PROP = 
@@ -2028,6 +2031,7 @@ public class TransactionList implements ClusterListener
         if (persist && changed) {
             store.updateClusterTransactionBrokerState(id, expectedTranState, b, Destination.PERSIST_SYNC);
         }
+        txnReaper.clusterTransactionCompleted(id);
     }
 
     public boolean updateRemoteTransactionState(TransactionUID id, int state, 
@@ -3098,23 +3102,71 @@ class TransactionReaper implements Runnable, TimerEventHandler
     TransactionList translist = null;
 	Logger logger = Globals.getLogger();
 
-    Vector committed = new Vector(); 
-    Vector noremoves = new Vector(); 
-    Map clusterPCommitted = Collections.synchronizedMap(new LinkedHashMap());
-    Vector remoteCommitted = new Vector(); 
-    Vector remoteRCommitted = new Vector(); 
+    List<TIDEntry> committed = Collections.synchronizedList(new ArrayList<TIDEntry>());
+    List<TIDEntry> noremoves = Collections.synchronizedList(new ArrayList<TIDEntry>()); 
+    List<TIDEntry> clusterPCommitted = Collections.synchronizedList(new ArrayList<TIDEntry>());
+    List<TIDEntry> remoteCommitted = Collections.synchronizedList(new ArrayList<TIDEntry>()); 
+    List<TIDEntry> remoteRCommitted = Collections.synchronizedList(new ArrayList<TIDEntry>()); 
     WakeupableTimer reapTimer = null;
     enum ClusterPCommittedState { UNPROCCESSED, PROCCESSED, TAKEOVER };
+
+    class TIDEntry {
+        TransactionUID tid = null; 
+        boolean inprocessing = false;
+        ClusterPCommittedState pstate = ClusterPCommittedState.UNPROCCESSED; 
+        boolean swipemark = false;
+        boolean swipeonly = false;
+
+        public TIDEntry(TransactionUID id) {
+            tid = id;
+        }
+
+        public TIDEntry(TransactionUID id, ClusterPCommittedState s) {
+            tid = id;
+            pstate = s;
+        }
+
+        public int hashcode() {
+            return tid.hashCode();
+        }
+
+        public boolean equals(Object obj) {
+            if (obj instanceof TIDEntry) {
+                return tid.equals(((TIDEntry)obj).tid);
+            }
+            return false;
+        }
+    }
 
     public  TransactionReaper(TransactionList tl) { 
         this.translist = tl;
     }
 
+    private boolean needReapOne(List l) {
+        if (TransactionList.TXN_REAPLIMIT == 0) {
+            return true;
+        }
+        int size = l.size();
+        if (size > TransactionList.TXN_REAPLIMIT*
+                (1.0+((float)TransactionList.TXN_REAPLIMIT_OVERTHRESHOLD)/100)) {
+            return true;
+        }
+        return false;
+    }
+
     public void addLocalTransaction(TransactionUID tid, boolean noremove) {
-        if (noremove) noremoves.add(tid);
-        committed.add(tid);
+        TIDEntry e = new TIDEntry(tid);
+        if (noremove) {
+            noremoves.add(e);
+        }
+        committed.add(e);
         createTimer();
-        if (committed.size() > TransactionList.TXN_REAPLIMIT) reapTimer.wakeup();
+        if (committed.size() > TransactionList.TXN_REAPLIMIT) {
+            reapTimer.wakeup();
+        }
+        if (needReapOne(committed)) { 
+            run(true);
+        }
     }
 
     public void addClusterTransaction(TransactionUID tid, boolean noremove) {
@@ -3122,38 +3174,98 @@ class TransactionReaper implements Runnable, TimerEventHandler
     }
 
     public void addClusterTransaction(TransactionUID tid, boolean noremove, boolean takeover) {
+        TIDEntry e = null;
         if (!takeover) {
-            clusterPCommitted.put(tid, ClusterPCommittedState.UNPROCCESSED);
+            e = new TIDEntry(tid, ClusterPCommittedState.UNPROCCESSED);
         } else {
-            clusterPCommitted.put(tid, ClusterPCommittedState.TAKEOVER);
+            e = new TIDEntry(tid, ClusterPCommittedState.TAKEOVER);
         }
-        if (noremove) noremoves.add(tid);
+        clusterPCommitted.add(e);
+        if (noremove) {
+            noremoves.add(e);
+        }
         createTimer();
         reapTimer.wakeup();
     }
 
-    public void addCompletedClusterTransaction(TransactionUID tid) {
-        committed.add(tid);
+    public void clusterTransactionCompleted(TransactionUID tid) {
         createTimer();
-        if (committed.size() > TransactionList.TXN_REAPLIMIT) reapTimer.wakeup();
+        reapTimer.wakeup();
+
+        if (!needReapOne(clusterPCommitted) && !needReapOne(committed)) {
+            return; 
+        }
+
+        TransactionBroker[] brokers = null;
+        try {
+            brokers = translist.getClusterTransactionBrokers(tid);
+        } catch (Exception e) {
+            logger.logStack(logger.WARNING, e.getMessage(), e);
+        }
+        boolean completed = true;
+        if (brokers == null) { 
+            completed = false;
+        } else {
+            for (int i = 0; i < brokers.length; i++) {
+                if (!brokers[i].isCompleted()) {
+                    completed = false;
+                }
+            }
+        }
+        if (completed) {
+            TIDEntry entry = null;
+            TIDEntry e =  new TIDEntry(tid);
+            synchronized(clusterPCommitted) {
+                int ind = clusterPCommitted.indexOf(e);
+                if (ind >= 0) {
+                    entry = clusterPCommitted.get(ind);
+                }
+                if (entry != null && entry.inprocessing) {
+                    entry = null;
+                }  
+                if (entry != null) {
+                    entry.inprocessing = true;
+                }
+            }
+            if (entry != null) {
+                if (entry.pstate == ClusterPCommittedState.UNPROCCESSED) {
+                    Globals.getConnectionManager().removeFromClientDataList(
+                        IMQConnection.TRANSACTION_LIST, entry.tid);
+                }
+                entry.pstate = ClusterPCommittedState.PROCCESSED;
+                clusterPCommitted.remove(entry);
+                entry.inprocessing = false;
+                committed.add(entry);
+            }
+        }
+        if (needReapOne(committed)) {
+            run(true);
+        }
     }
 
     public void addRemoteTransaction(TransactionUID tid, boolean recovery) {
+        TIDEntry e = new TIDEntry(tid);
         if (!recovery) {
-            remoteCommitted.add(tid);
+            remoteCommitted.add(e);
         } else {
-            remoteRCommitted.add(tid);
+            remoteRCommitted.add(e);
         }
         createTimer();
         if (remoteCommitted.size() > TransactionList.TXN_REAPLIMIT ||
             remoteRCommitted.size() > TransactionList.TXN_REAPLIMIT) {
             reapTimer.wakeup();
         }
+        if (needReapOne(remoteCommitted) || needReapOne(remoteRCommitted)) {
+            run(true);
+        }
     }
 
     public boolean hasRemoteTransaction(TransactionUID tid) {
-        if (remoteCommitted.contains(tid)) return true;
-        return remoteRCommitted.contains(tid);
+        TIDEntry e = new TIDEntry(tid);
+        if (remoteCommitted.contains(e)) {
+            return true;
+        }
+        return remoteRCommitted.contains(e);
     }
 
     public synchronized void wakeupReaperTimer() {
@@ -3237,25 +3349,26 @@ class TransactionReaper implements Runnable, TimerEventHandler
     }
 
     public Hashtable getDebugState(TransactionUID id) {
+        TIDEntry e = new TIDEntry(id);
         Hashtable ht =  new Hashtable();
-        if (committed.contains(id)) { 
+        if (committed.contains(e)) { 
             ht.put(id.toString(), 
-               TransactionState.toString(TransactionState.COMMITTED));
+                TransactionState.toString(TransactionState.COMMITTED));
             return ht;
         }
-        if (clusterPCommitted.get(id) != null) { 
+        if (clusterPCommitted.contains(e)) { 
             ht.put(id.toString()+"(cluster)",
-               TransactionState.toString(TransactionState.COMMITTED));
+                TransactionState.toString(TransactionState.COMMITTED));
             return ht;
         }
-        if (remoteCommitted.contains(id)) { 
+        if (remoteCommitted.contains(e)) { 
             ht.put(id.toString()+"(remote)",
-               TransactionState.toString(TransactionState.COMMITTED));
+                TransactionState.toString(TransactionState.COMMITTED));
             return ht;
         }
-        if (remoteRCommitted.contains(id)) { 
+        if (remoteRCommitted.contains(e)) { 
             ht.put(id.toString()+"(remote-r)",
-               TransactionState.toString(TransactionState.COMMITTED));
+                TransactionState.toString(TransactionState.COMMITTED));
             return ht;
         }
         return null;
@@ -3263,50 +3376,165 @@ class TransactionReaper implements Runnable, TimerEventHandler
 
     public Hashtable getDebugState() {
         Hashtable ht = new Hashtable();
-        ht.put("comittedCount", new Integer(committed.size()));
-        Iterator itr = committed.iterator();
-        while (itr.hasNext()) {
-             TransactionUID tid = (TransactionUID)itr.next();
-             ht.put(tid.toString(), 
-                TransactionState.toString(TransactionState.COMMITTED));
-        }
+        List l = null;
 
-        List cpc = null;
+        ht.put("committedCount", Integer.valueOf(committed.size()));
+        synchronized(committed) {
+            l = new ArrayList(committed);
+        }
+        TIDEntry e = null;
+        Iterator<TIDEntry> itr = l.iterator();
+        while (itr.hasNext()) {
+            e = itr.next();
+            ht.put(e.tid.toString(), 
+                TransactionState.toString(TransactionState.COMMITTED)+
+                ":"+e.inprocessing);
+
+        }
+        l.clear();
+
+        ht.put("clusterPCommittedCount", Integer.valueOf(clusterPCommitted.size()));
         synchronized(clusterPCommitted) {
-            cpc = new ArrayList(clusterPCommitted.keySet());
-            itr = cpc.iterator();
-            while (itr.hasNext()) {
-                TransactionUID tid = (TransactionUID)itr.next();
-                ht.put(tid.toString()+"(cluster)", 
-                       TransactionState.toString(TransactionState.COMMITTED));
-            }
+            l = new ArrayList(clusterPCommitted);
         }
+        itr = l.iterator();
+        while (itr.hasNext()) {
+            e = itr.next();
+            ht.put(e.tid.toString()+"(cluster)", 
+                TransactionState.toString(TransactionState.COMMITTED)+
+                ":"+e.inprocessing+":"+e.pstate);
+        }
+        l.clear();
 
-        ht.put("noremovesCount", new Integer(noremoves.size()));
-        itr = noremoves.iterator();
+        ht.put("noremovesCount", Integer.valueOf(noremoves.size()));
+        synchronized(noremoves) {
+            l = new ArrayList(noremoves);
+        }
+        itr = l.iterator();
         while (itr.hasNext()) {
-             TransactionUID tid = (TransactionUID)itr.next();
-             ht.put(tid.toString(), 
+            e = itr.next();
+            ht.put(e.tid.toString(), 
                 TransactionState.toString(TransactionState.COMMITTED));
         }
-        itr = remoteCommitted.iterator();
-        while (itr.hasNext()) {
-             TransactionUID tid = (TransactionUID)itr.next();
-             ht.put(tid.toString()+"(remote)", 
-                TransactionState.toString(TransactionState.COMMITTED));
+        l.clear();
+
+        ht.put("remoteCommittedCount", Integer.valueOf(remoteCommitted.size()));
+        synchronized(remoteCommitted) {
+            l = new ArrayList(remoteCommitted);
         }
-        itr = remoteRCommitted.iterator();
+        itr = l.iterator();
         while (itr.hasNext()) {
-             TransactionUID tid = (TransactionUID)itr.next();
-             ht.put(tid.toString()+"(remote-r)", 
-                TransactionState.toString(TransactionState.COMMITTED));
+            e = itr.next();
+            ht.put(e.tid.toString()+"(remote)", 
+                TransactionState.toString(TransactionState.COMMITTED)+
+                ":"+e.inprocessing);
         }
+        l.clear();
+
+        ht.put("remoteRCommittedCount", Integer.valueOf(remoteRCommitted.size()));
+        synchronized(remoteRCommitted) {
+            l = new ArrayList(remoteRCommitted);
+        }
+        itr = l.iterator();
+        while (itr.hasNext()) {
+            e = itr.next();
+            ht.put(e.tid.toString()+"(remote-r)", 
+                TransactionState.toString(TransactionState.COMMITTED)+
+                ":"+e.inprocessing);
+        }
+        l.clear();
         return ht;
     }
 
+    private boolean clusterPCommittedHasUnprocessed() {
+        List l = null;
+        synchronized(clusterPCommitted) {
+            l = new ArrayList(clusterPCommitted);
+        }
+        TIDEntry e = null;
+        Iterator<TIDEntry> itr = l.iterator();
+        while (itr.hasNext()) {
+            e = itr.next();
+            if (e.pstate == ClusterPCommittedState.UNPROCCESSED ||
+                e.pstate == ClusterPCommittedState.TAKEOVER) {
+                return true;
+            }
+        }
+        l.clear();
+        return false;
+    }
+
+    private void clearSwipeMark(List<TIDEntry> list) {
+        List l = null;
+        synchronized(list) {
+            l = new ArrayList(list);
+        }
+        TIDEntry e = null;
+        Iterator<TIDEntry> itr = l.iterator();
+        while (itr.hasNext()) {
+            e = itr.next();
+            e.swipemark = false;
+        }
+        l.clear();
+    }
+
+    private TIDEntry getNextEntry(List<TIDEntry> l, int limit, boolean swipe) {
+        TIDEntry entry = null;
+        int i = 0, rsize = 0;
+        synchronized(l) {
+            rsize = l.size();
+            while (rsize > limit) {
+                entry = l.get(i++);
+                if (entry.inprocessing) {
+                    rsize--; 
+                    entry = null;
+                    continue;
+                }
+                if (!swipe && (entry.swipeonly || entry.swipemark)) { 
+                    rsize--; 
+                    entry = null;
+                    continue;
+                }
+                if (swipe && entry.swipemark) {
+                    rsize--; 
+                    entry = null;
+                    continue;
+                }
+                entry.inprocessing = true;
+                if (swipe) {
+                    entry.swipemark = true;
+                }
+                break;
+            }
+        }
+        return entry;
+    }
+
+    private void releaseNextEntry(List<TIDEntry> l, TIDEntry entry) {
+        if (l == null) {
+            entry.inprocessing = false;
+            return;
+        } 
+        synchronized(l) {
+            entry.inprocessing = false;
+        }
+    }
+
     public void run() {
+        try {
+            run(false); 
+        } finally {
+            clearSwipeMark(clusterPCommitted);
+            clearSwipeMark(committed);
+        }
+    }
+
+    public void run(boolean oneOnly) {
 
             if (!translist.isLoadComplete()) {
+                if (oneOnly) {
+                    return;
+                }
                 try {
                     logger.log(logger.INFO, Globals.getBrokerResources().getString(
                                             BrokerResources.I_REAPER_WAIT_TXN_LOAD)); 
@@ -3323,31 +3551,40 @@ class TransactionReaper implements Runnable, TimerEventHandler
             }
 
             ArrayList activatedBrokers = null;
-            synchronized(translist.newlyActivatedBrokers) {
-                activatedBrokers = new ArrayList(translist.newlyActivatedBrokers);
-                translist.newlyActivatedBrokers.clear();
+            if (!oneOnly) {
+                synchronized(translist.newlyActivatedBrokers) {
+                    activatedBrokers = new ArrayList(translist.newlyActivatedBrokers);
+                    translist.newlyActivatedBrokers.clear();
+                }
             }
 
-            if (activatedBrokers.size() > 0 || 
-                clusterPCommitted.containsValue(ClusterPCommittedState.UNPROCCESSED) ||
-                clusterPCommitted.containsValue(ClusterPCommittedState.TAKEOVER)) {
-
-            List cpc =  null;
-            synchronized(clusterPCommitted) {
-                cpc = new ArrayList(clusterPCommitted.keySet());
+            TIDEntry entry = null, tmpe = null;
+         
+            int count = 0;
+            while (reapTimer != null) {
+             
+            if (count > 0 && (entry == null || oneOnly)) {
+                break;
             }
-            TransactionUID cpcTid = null;
-            Iterator itr = cpc.iterator();
-            while (itr.hasNext()) {
-                cpcTid = (TransactionUID)itr.next();
-                ClusterPCommittedState processState = (ClusterPCommittedState)clusterPCommitted.get(cpcTid);
+            entry = null;
+            count++;
+
+            if (!oneOnly && (activatedBrokers.size() > 0 || clusterPCommittedHasUnprocessed())) {
+
+            tmpe = getNextEntry(clusterPCommitted, 0, !oneOnly);
+
+            if (tmpe != null) {
+                entry = tmpe;
+                TransactionUID cpcTid = entry.tid;
+                ClusterPCommittedState processState = entry.pstate;
                 if (processState != null && processState == ClusterPCommittedState.UNPROCCESSED) {
                     Globals.getConnectionManager().removeFromClientDataList(IMQConnection.TRANSACTION_LIST, cpcTid);
                 }
                 try {
                     TransactionBroker[] brokers = translist.getClusterTransactionBrokers(cpcTid);
-                    if (brokers == null) continue;
                     boolean completed = true;
+                    if (brokers != null) { 
+
                     BrokerAddress to = null; 
                     for (int j = 0; j < brokers.length; j++) {
                         if (!brokers[j].isCompleted()) {
@@ -3384,11 +3621,11 @@ class TransactionReaper implements Runnable, TimerEventHandler
                                      continue;
                                  }
 
-                                if (TransactionList.DEBUG_CLUSTER_TXN) { 
-                                    logger.log(logger.INFO, "txnReaperThread: sendClusterTransactionInfo for TID="+cpcTid+" to "+to);
-                                }
+                                 if (TransactionList.DEBUG_CLUSTER_TXN) { 
+                                     logger.log(logger.INFO, "txnReaperThread: sendClusterTransactionInfo for TID="+cpcTid+" to "+to);
+                                 }
 
-                                Globals.getClusterBroadcast().sendClusterTransactionInfo(cpcTid.longValue(), to);
+                                 Globals.getClusterBroadcast().sendClusterTransactionInfo(cpcTid.longValue(), to);
 
                             } else {
                                 if (processState != null && processState != ClusterPCommittedState.PROCCESSED) {
@@ -3397,62 +3634,67 @@ class TransactionReaper implements Runnable, TimerEventHandler
                                            cpcTid.toString(), brokers[j].toString()));
                                 }
                             }
-                         }
+                        }
                     }
-                    clusterPCommitted.put(cpcTid, ClusterPCommittedState.PROCCESSED);
-                    if (!completed) continue;
-                  
-                    committed.add(cpcTid);
-                    clusterPCommitted.remove(cpcTid);
+
+                    } //if brokers != null;
+                    entry.pstate = ClusterPCommittedState.PROCCESSED;
+                    if (!completed) {
+                        releaseNextEntry(clusterPCommitted, entry);
+                    } else {
+                        clusterPCommitted.remove(entry);
+                        releaseNextEntry(null, entry);
+                        committed.add(entry);
+                    }
                 } catch (Throwable e) {
                     logger.logStack(logger.WARNING, e.getMessage(), e);
                 }
             }
             }
 
-            TransactionUID[] tids = (TransactionUID[])committed.toArray(new TransactionUID[0]);
-            int cnt =  tids.length - TransactionList.TXN_REAPLIMIT;
-            for (int i = 0; i < cnt; i++) {
+            tmpe = getNextEntry(committed, TransactionList.TXN_REAPLIMIT, !oneOnly);
+            if (tmpe != null) {
+                entry = tmpe;
                 if (TransactionList.DEBUG_CLUSTER_TXN) {
-                logger.log(logger.INFO, "Cleaning up committed transaction "+tids[i]);
+                    logger.log(logger.INFO, "Cleaning up committed transaction "+entry.tid);
                 }
                 try {
                     try {
-                        translist.reapTransactionID(tids[i], noremoves.contains(tids[i]));
+                        translist.reapTransactionID(entry.tid, noremoves.contains(entry));
                     } catch (BrokerException e) {
                         if (e.getStatusCode() != Status.NOT_FOUND) {
+                            releaseNextEntry(committed, entry);
+                            entry.swipeonly = true;
                             throw e;
                         }
                         logger.logStack(logger.WARNING,
                             "Cleanup committed transaction: "+e.getMessage(), e);
                     }
-                    committed.remove(tids[i]);
-                    noremoves.remove(tids[i]);
+                    committed.remove(entry);
+                    noremoves.remove(entry);
                 } catch (Exception e) {
                     logger.logStack(logger.WARNING,
-                           "Failed to cleanup committed transaction "+tids[i], e);
+                           "Failed to cleanup committed transaction "+entry.tid, e);
                 }
             }
 
-            cnt =  remoteCommitted.size() - TransactionList.TXN_REAPLIMIT;
-            while (cnt > 0) {
-                TransactionUID tid = (TransactionUID)remoteCommitted.firstElement();
-                remoteCommitted.remove(tid);
-                cnt--;
+            tmpe = getNextEntry(remoteCommitted, TransactionList.TXN_REAPLIMIT, !oneOnly);
+            if (tmpe != null) {
+                entry = tmpe;
+                remoteCommitted.remove(entry);
                 if (TransactionList.DEBUG_CLUSTER_TXN) {
-                logger.log(logger.INFO, "Cleaned up committed remote transaction "+tid);
+                logger.log(logger.INFO, "Cleaned up committed remote transaction "+entry.tid);
                 }
             }
-            cnt =  remoteRCommitted.size() - TransactionList.TXN_REAPLIMIT;
-            while (cnt > 0) {
-                TransactionUID tid = (TransactionUID)remoteRCommitted.firstElement();
-                remoteRCommitted.remove(tid);
-                cnt--;
+            tmpe = getNextEntry(remoteRCommitted, TransactionList.TXN_REAPLIMIT, !oneOnly);
+            if (tmpe != null) {
+                entry = tmpe;
+                remoteRCommitted.remove(entry);
                 if (TransactionList.DEBUG_CLUSTER_TXN) {
-                logger.log(logger.INFO, "Cleaned up committed remote transaction "+tid+".");
+                logger.log(logger.INFO, "Cleaned up committed remote transaction "+entry.tid);
                 }
             }
-
+        }
     }
 }
 

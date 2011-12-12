@@ -60,6 +60,7 @@ import com.sun.messaging.jmq.jmsserver.data.TransactionWork;
 import com.sun.messaging.jmq.jmsserver.data.TransactionWorkMessage;
 import com.sun.messaging.jmq.jmsserver.persist.Store;
 import com.sun.messaging.jmq.jmsserver.util.BrokerException;
+import com.sun.messaging.jmq.jmsserver.util.WaitTimeoutException;
 import com.sun.messaging.jmq.util.log.Logger;
 
 public abstract class BaseTransactionManager {
@@ -175,7 +176,8 @@ public abstract class BaseTransactionManager {
 
 	abstract void processStoredTxnOnStartup(BaseTransaction baseTxn);
 
-	public void waitForPlayingToMessageStoreCompletion() {
+	public void waitForPlayingToMessageStoreCompletion(boolean nowait)
+        throws WaitTimeoutException {
 		synchronized (playingToMessageStore) {
 			if (Store.getDEBUG()) {
 				String msg = getPrefix() + " num playingToMessageStore ="
@@ -190,8 +192,12 @@ public abstract class BaseTransactionManager {
 								+ " playingToMessageStore";
 						logger.log(Logger.DEBUG, msg);
 					}
+                                        if (nowait) {
+                                            throw new WaitTimeoutException(this.getClass().getSimpleName());
+                                        }
 					playingToMessageStore.wait(1000);
 				}
+                                transactionLogManager.notifyPlayToStoreCompletion();
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}

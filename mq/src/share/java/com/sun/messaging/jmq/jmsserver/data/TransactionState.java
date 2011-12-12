@@ -196,13 +196,13 @@ public class TransactionState implements Externalizable, Serializable {
         ht.put("connectionString", (connectionString == null ? "none" : connectionString));
         ht.put("clientID", (clientID == null ? "none" : clientID));
         ht.put("type", getType().toString());
-        ht.put("createTime", String.valueOf(createTime)+" "+(new Date(detachedTime)));
+        ht.put("createTime", String.valueOf(createTime));
         ht.put("lifetime", new Long(lifetime).toString());
         ht.put("expireTime", new Long(expireTime).toString());
         ht.put("lastAccessTime", new Long(lastAccessTime).toString());
         ht.put("sessionLess", Boolean.valueOf(sessionLess).toString());
         ht.put("detached", String.valueOf(detached));
-        ht.put("detachedTime", String.valueOf(detachedTime)+" "+(new Date(detachedTime)));
+        ht.put("detachedTime", String.valueOf(detachedTime));
         if (state >= PREPARED) {
         ht.put("onephasePrepare", Boolean.valueOf(onephasePrepare));
         }

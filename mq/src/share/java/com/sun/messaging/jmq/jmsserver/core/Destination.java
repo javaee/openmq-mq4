@@ -2329,13 +2329,17 @@ protected String INITIALIZEBY = "";
             int ackno = 0;
             for (int i=0; i < total; i ++) {
                 PacketReference ref = (PacketReference)pfers.get(i);
-                if (ref.matches(sid)) {
-                    match ++;
-                    if (ref.isAcknowledged(sid))
-                        ackno ++;
-                    if (ref.isDelivered(sid))
-                        delivered ++;
-                }
+                try {
+                    if (ref.matches(sid)) {
+                        match ++;
+                        if (ref.isAcknowledged(sid)) {
+                            ackno ++;
+                        }
+                        if (ref.isDelivered(sid)) {
+                            delivered ++;
+                        }
+                    }
+                } catch (Exception e) {}
             }
             String ID = match + " of " + total 
               + "[ d=" + delivered

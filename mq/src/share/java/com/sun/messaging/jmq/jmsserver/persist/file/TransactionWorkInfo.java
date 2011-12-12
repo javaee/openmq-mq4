@@ -397,10 +397,10 @@ class TransactionWorkInfo {
 			// offset into attachment part			
 
 			if (!parent.writeAttachmentData(tid, valOffset, true, val, sync)) {
-				logger.log(logger.ERROR, br.E_MSG_NOT_FOUND_IN_STORE, tid,
-						parent.storeName);
-				throw new BrokerException(br.getString(
-						br.E_MSG_NOT_FOUND_IN_STORE, tid, parent.storeName));
+                                String emsg = br.getKString(br.E_TRANSACTIONID_NOT_FOUND_IN_STORE, tid)+
+                                                            ": "+parent.storeName;
+				logger.log(logger.ERROR, emsg);
+				throw new BrokerException(emsg);
 			}
 
 		}

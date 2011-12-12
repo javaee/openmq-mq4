@@ -833,12 +833,18 @@ public class PacketReference implements Sized, Ordered
         ht.put("ackInfo[#]", String.valueOf( ackInfo.size()));
         ht.put("interestCount", String.valueOf(interestCnt));
         Vector vt = new Vector();
+        ConsumerMessagePair cmp = null;
         synchronized(ackInfo) {
             Iterator itr = ackInfo.keySet().iterator();
             while (itr.hasNext()) {
                 Object key = itr.next();
-                ConsumerMessagePair cmp = getAck(key);
-                vt.add(cmp.toString());
+                try {
+                    cmp = getAck(key);
+                } catch (Exception e) {
+                    vt.add(key+":"+e.toString());
+                    continue;
+                }
+                vt.add((cmp == null ? key+":null":cmp.toString()));
             }    
         }
         if (!vt.isEmpty())

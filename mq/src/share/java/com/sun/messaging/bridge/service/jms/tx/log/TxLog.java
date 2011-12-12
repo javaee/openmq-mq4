@@ -232,6 +232,16 @@ class TransactionReaper implements Runnable, TimerEventHandler
     }
 
     public void addTransaction(GlobalXid gxid) {
+        if (_reapLimit == 0 ||
+            removes.size() > (2*_reapLimit)) {
+            try {
+                 _txlog.reap(gxid.toString());
+                 return;
+            } catch (Exception e) {
+                 _logger.log(Level.WARNING,
+                 "Failed to cleanup global transaction "+gxid+":"+e+", will retry later", e);
+            }
+        }
         removes.add(gxid);
         createTimer();
         if (removes.size() > _reapLimit) reapTimer.wakeup();

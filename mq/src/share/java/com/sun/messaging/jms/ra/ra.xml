@@ -47,10 +47,10 @@
            http://java.sun.com/xml/ns/j2ee/connector_1_5.xsd"
            version="1.5">
     <description>Oracle GlassFish(tm) Server Message Queue JMS Resource Adapter</description>
-    <display-name>Oracle GlassFish(tm) Server Message Queue 4.5.1 Java EE Resource Adapter for JMS</display-name>
+    <display-name>Oracle GlassFish(tm) Server Message Queue 4.5.2 Java EE Resource Adapter for JMS</display-name>
     <vendor-name>Oracle</vendor-name>
     <eis-type>Java Message Service v 1.1</eis-type>
-    <resourceadapter-version>4.5.1</resourceadapter-version>
+    <resourceadapter-version>4.5.2</resourceadapter-version>
 
     <resourceadapter>
         <resourceadapter-class>

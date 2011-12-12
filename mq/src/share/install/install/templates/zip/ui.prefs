@@ -42,7 +42,7 @@
 # Fragments line ${varname} are replaced by FreeMarker templating mechanism from other properties
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ COMMON STUFF ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-PRODUCT_NAME=Open Message Queue 4.5.1
+PRODUCT_NAME=Open Message Queue 4.5.2
 
 app_title=${PRODUCT_NAME}
 

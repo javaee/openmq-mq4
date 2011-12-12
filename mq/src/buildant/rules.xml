@@ -233,10 +233,10 @@
 		 destdir="${javadocs.dir}"
 		 version="true"
 		 use="true"
-		 windowtitle="${JMQ_SOFTWARE_NAME_SHORT}, v4.5.1 API Specification">
+		 windowtitle="${JMQ_SOFTWARE_NAME_SHORT}, v4.5.2 API Specification">
         <classpath refid="platform.classpath"/>
-   	<doctitle><![CDATA[<h1>${JMQ_SOFTWARE_NAME_SHORT}, v4.5.1 API Specification</h1>]]></doctitle>
-   	<header><![CDATA[${JMQ_SOFTWARE_NAME_SHORT}, v4.5.1 API Specification]]></header>
+   	<doctitle><![CDATA[<h1>${JMQ_SOFTWARE_NAME_SHORT}, v4.5.2 API Specification</h1>]]></doctitle>
+   	<header><![CDATA[${JMQ_SOFTWARE_NAME_SHORT}, v4.5.2 API Specification]]></header>
     	<bottom><![CDATA[<font size="-1"><i>Copyright (c) 2011, Oracle and/or its affiliates.  All rights reserved.</i></font>]]></bottom>
     	<tag name="todo" scope="all" description="To do:"/>
     	<link href="http://download.oracle.com/javase/1.5.0/docs/api/"/>

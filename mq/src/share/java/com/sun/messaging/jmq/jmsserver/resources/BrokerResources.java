@@ -590,6 +590,8 @@ public class BrokerResources extends MQResourceBundle {
     final public static String I_RM_MSG_ON_REPLAY_MSG_REMOVAL = "B1391";
     final public static String I_OPEN_TXNLOG = "B1392";
     final public static String I_DB_POOL_POLL_WAIT = "B1393";
+    final public static String I_CHECKPOINT_START = "B1422";
+    final public static String I_CHECKPOINT_END = "B1423";
 
     // 2000-2999 Warning Messages
     final public static String W_AUTH_FAILED	 	= "B2000";
@@ -871,6 +873,7 @@ public class BrokerResources extends MQResourceBundle {
 
     final public static String W_EXCEPTION_PROCESS_REMOTE_MSG  = "B2256";
     final public static String W_PROCESS_REMOTE_MSG_DST_LIMIT  = "B2257";
+    final public static String W_CHECKPOINT_WAIT_PLAYTO_STORE_TIMEOUT  = "B2259";
 
     // 3000-3999 Error Messages
     final public static String E_PERSISTENT_OPEN 	= "B3000";

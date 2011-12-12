@@ -591,8 +591,11 @@ public class Queue extends Destination
                   ConsumerUID consumer)
         throws BrokerException
     {
-        // places back on the pending list
-        pending.add(10-ref.getPriority(), ref);
+        ArrayList a =  new ArrayList();
+        a.add(ref);
+        forwardOrphanMessages(a, consumer);
+        a.clear();
+        a = null;
     }
 
     /* called from transaction code */

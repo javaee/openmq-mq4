@@ -570,9 +570,6 @@ class MessageDAOImpl extends BaseDAOImpl implements MessageDAO {
                 myConn = true; // Set to true since this is our connection
             }
 
-            // Delete states
-            dbMgr.getDAOFactory().getConsumerStateDAO().deleteByMessageID( conn, sysMsgID );
-
             if (fi.FAULT_INJECTION) {
                 HashMap fips = new HashMap();
                 fips.put(FaultInjection.DST_NAME_PROP, 
@@ -581,13 +578,11 @@ class MessageDAOImpl extends BaseDAOImpl implements MessageDAO {
             }
                      
             // Now delete the message
+            boolean deleteFailed = false;
             pstmt = conn.prepareStatement( deleteSQL );
             pstmt.setString( 1, id );
             if ( pstmt.executeUpdate() == 0 ) {
-                // We'll assume the msg does not exist
-                throw new BrokerException(
-                    br.getKString( BrokerResources.E_MSG_NOT_FOUND_IN_STORE,
-                        id, dstUID ), Status.NOT_FOUND );
+                deleteFailed = true;
             } else {
                 // For HA mode, make sure this broker still owns the store
                 if ( Globals.getHAEnabled() ) {
@@ -607,6 +602,16 @@ class MessageDAOImpl extends BaseDAOImpl implements MessageDAO {
                         throw be;
                     }
                 }
+            }
+            
+            // Delete states
+            dbMgr.getDAOFactory().getConsumerStateDAO().deleteByMessageID( conn, sysMsgID );
+
+            if (deleteFailed) {
+                // We'll assume the msg does not exist
+                throw new BrokerException(
+                    br.getKString( BrokerResources.E_MSG_NOT_FOUND_IN_STORE,
+                        id, dstUID ), Status.NOT_FOUND );
             }
 
             // Check whether to commit or not

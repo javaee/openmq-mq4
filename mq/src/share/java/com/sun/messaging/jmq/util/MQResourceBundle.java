@@ -245,6 +245,12 @@ public class MQResourceBundle extends ResourceBundle
 	return "[" + key + "]: " + getString(key, args);
     }
 
+    public String getKTString(String key, Object[] args)
+	throws MissingResourceException
+    {
+	return "[" + key + "]: "+"["+Thread.currentThread()+"]"+getString(key, args);
+    }
+
     /**
      * Get Character. This is used primarily for menu item
      * mnemonics. The mnemonic is stored as a string e.g.

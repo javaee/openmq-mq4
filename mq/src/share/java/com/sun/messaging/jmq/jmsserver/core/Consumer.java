@@ -906,18 +906,37 @@ public class Consumer implements EventBroadcaster,
      * on return false, must ensure message not routed
      */
     public boolean routeMessage(PacketReference p, boolean toFront) {
+        return routeMessage(p, toFront, false);
+    }
+
+    /**
+     * @param toFront ignored if ordered true
+     */
+    public boolean routeMessage(PacketReference p, boolean toFront, boolean ordered) {
         int position = 0;
-        if (!toFront) {
+        if (!toFront && !ordered) {
             position = 11 - p.getPriority();
         }
-
+        ArrayList a = null;
+        if (ordered) {
+            a = new ArrayList();
+            a.add(p);
+        }
         synchronized(destroyLock) {
             if (!valid) return false;
-            msgs.add(position, p);
+            if (ordered) {
+                msgs.addAllOrdered(a);
+            } else {
+                msgs.add(position, p);
+            }
             msgsToConsumer ++;
         }
         
         checkState(null);
+        if (a != null) {
+            a.clear();
+            a = null;
+        }
         return true;
     }
 

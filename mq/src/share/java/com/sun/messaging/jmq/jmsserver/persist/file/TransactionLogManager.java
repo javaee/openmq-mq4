@@ -65,6 +65,7 @@ import com.sun.messaging.jmq.jmsserver.persist.Store;
 import com.sun.messaging.jmq.jmsserver.persist.TransactionInfo;
 import com.sun.messaging.jmq.jmsserver.resources.BrokerResources;
 import com.sun.messaging.jmq.jmsserver.util.BrokerException;
+import com.sun.messaging.jmq.jmsserver.util.WaitTimeoutException;
 import com.sun.messaging.jmq.util.FileUtil;
 import com.sun.messaging.jmq.util.SizeString;
 import com.sun.messaging.jmq.util.log.Logger;
@@ -132,7 +133,6 @@ public class TransactionLogManager implements CheckPointListener {
 	static final String TXNLOG_FILE_SIZE_PROP = TXNLOG_PROP_PREFIX
 			+ ".file.size";
 	
-
 	static final long DEFAULT_TXNLOG_FILE_SIZE = FileTransactionLogWriter.DEFAULT_MAX_SIZE;
 
 	static final String MSG_LOG_FILENAME = "txnlog";
@@ -143,6 +143,7 @@ public class TransactionLogManager implements CheckPointListener {
 	Store store;
 	MsgStore msgStore;
 	File rootDir;	
+        boolean closed = false;
 	
 	 // whether non-transacted persistent message sent should be logged
 	// by default, log non transacted message sends and acks if sync is enabled.
@@ -168,8 +169,18 @@ public class TransactionLogManager implements CheckPointListener {
     public static final String TXN_LOG_GROUP_COMMITS_PROP = Globals.IMQ
 			+ ".persist.file.txnLog.groupCommits";
 
-	public static boolean isTxnLogGroupCommits = Globals.getConfig()
-			.getBooleanProperty(TXN_LOG_GROUP_COMMITS_PROP, false);
+    public static boolean isTxnLogGroupCommits = Globals.getConfig()
+                 .getBooleanProperty(TXN_LOG_GROUP_COMMITS_PROP, false);
+
+     public static final String WAIT_LOCAL_PLAYTO_STORE_WITH_EXLOCK_PROP =
+            Globals.IMQ+ ".persist.file.txnLog.waitLocalPlayToStoreCompletionWithExLock";
+     public static boolean waitLocalPlayToStoreWithExLock = Globals.getConfig()
+            .getBooleanProperty(WAIT_LOCAL_PLAYTO_STORE_WITH_EXLOCK_PROP, false);
+
+     public static final String WAIT_REMOTE_PLAYTO_STORE_WITH_EXLOCK_PROP =
+            Globals.IMQ+ ".persist.file.txnLog.waitRemotePlayToStoreCompletionWithExLock";
+     public static boolean waitRemotePlayToStoreWithExLock = Globals.getConfig()
+            .getBooleanProperty(WAIT_REMOTE_PLAYTO_STORE_WITH_EXLOCK_PROP, false);
 
       
     private static boolean replayInProgress=false;
@@ -187,7 +198,10 @@ public class TransactionLogManager implements CheckPointListener {
 	CheckpointManager checkpointManager;
 	PreparedTxnStore preparedTxnStore;
 	
-		public static final Logger logger = Globals.getLogger();
+        public static final Logger logger = Globals.getLogger();
+
+    private boolean playToStoreCompletionNotified = false;
+    private Object  playToStoreCompletionWaiter = new Object();
 		
 
 
@@ -270,6 +284,7 @@ public class TransactionLogManager implements CheckPointListener {
 	
 	public void close()
 	{
+                closed = true;
 		try{
 			if(msgLogWriter!=null)
 				msgLogWriter.close(false);
@@ -783,11 +798,22 @@ public class TransactionLogManager implements CheckPointListener {
 		}
 	}
 
+        public void notifyPlayToStoreCompletion() {
+            synchronized(playToStoreCompletionWaiter) {
+                playToStoreCompletionNotified = true;
+                playToStoreCompletionWaiter.notifyAll();
+            }
+        }
+
 	public void doCheckpoint() {
 
-		if (Store.getDEBUG()) {
-			logger.log(Logger.DEBUG, getPrefix() + " doCheckpoint");
-		}
+            if (closed) {
+                return;
+            }
+            if (Store.getDEBUG()) {
+                logger.log(Logger.INFO, br.getKString(br.I_CHECKPOINT_START));
+            }        
+
 		// 1. get exclusive lock on transaction log
 		// 2. wait for all logged commits to be written to message store
 		// 3. sync message store
@@ -805,20 +831,59 @@ public class TransactionLogManager implements CheckPointListener {
 			// fatal
 		}
 
+                boolean locked = false;
 		try {
+                        int count  = 0;
+                        while (true) { 
+                            if (closed) {
+                                return;
+                            }
+			    // 1. get exclusive lock on txnLog to prevent any other updates occurring
+			    store.txnLogExclusiveLock.lock();
+                            locked = true;
+                            try {
+                                synchronized(playToStoreCompletionWaiter) {
+                                    playToStoreCompletionNotified = false;
+                                }
 
-			// 1. get an exclusive lock on txnLog to prevent any other updates
-			// occurring
-			store.txnLogExclusiveLock.lock();
+			        //2. wait for all logged commits to be written to message store
+			        localTransactionManager.waitForPlayingToMessageStoreCompletion(
+                                                            !waitLocalPlayToStoreWithExLock);
+			        clusterTransactionManager.waitForPlayingToMessageStoreCompletion(
+                                                            !waitLocalPlayToStoreWithExLock);
+			        remoteTransactionManager.waitForPlayingToMessageStoreCompletion(
+                                                            !waitRemotePlayToStoreWithExLock);
 
-			// 2. wait for all logged commits to be written to message store
-			localTransactionManager.waitForPlayingToMessageStoreCompletion();
-			clusterTransactionManager.waitForPlayingToMessageStoreCompletion();
-			remoteTransactionManager.waitForPlayingToMessageStoreCompletion();
+                                //2.1 wait for pending removes to complete for logged last ack on message 
+                                loggedMessageHelper.waitForPendingRemoveCompletion(
+                                                        !waitRemotePlayToStoreWithExLock);
+
+                                break;
+                            } catch (WaitTimeoutException e) {
+                                store.txnLogExclusiveLock.unlock();
+                                locked = false;
+                                count++;
+                                if (closed) {
+                                    throw e;
+                                }
+                                synchronized(playToStoreCompletionWaiter) {
+                                    int cnt = 0;
+                                    while (!playToStoreCompletionNotified && !closed) {
+                                        try { 
+                                            playToStoreCompletionWaiter.wait(1000);
+                                            cnt++;
+                                        } catch (Exception ee) { }
+                                        if (cnt%15 == 0) { 
+                                        String[] args = { e.getMessage()+"("+cnt+", "+count+")" };
+                                        logger.log(Logger.WARNING, br.getKTString(
+                                            br.W_CHECKPOINT_WAIT_PLAYTO_STORE_TIMEOUT, args));
+                                        }
+                                    }
+                                }
+                                continue;
+                            }
+                        }
 			
-			//2.1 wait for pending removes to be completed for logged last ack on message 
-			loggedMessageHelper.waitForPendingRemoveCompletion();
-
 			// 3. sync the message store
 			store.syncStoreOnCheckpoint();
 
@@ -847,14 +912,28 @@ public class TransactionLogManager implements CheckPointListener {
 			// 8. reset logged message list
 			loggedMessageHelper.onCheckpoint();
 
+                        if (Store.getDEBUG()) {
+                            logger.log(Logger.INFO, br.getKString(br.I_CHECKPOINT_END));
+                        }
+
 		} catch (Throwable e) {
 			String msg = getPrefix()
 					+ "Failed to synchronize persistence store for transaction log checkpoint";
 			logger.logStack(Logger.ERROR,
 					BrokerResources.E_INTERNAL_BROKER_ERROR, msg, e);
 		} finally {
-			store.txnLogExclusiveLock.unlock();
+                        try {
+                            if (locked) {
+			    store.txnLogExclusiveLock.unlock();
+                            } 
+                        } finally {
 
+                            synchronized(playToStoreCompletionWaiter) {
+                                playToStoreCompletionNotified = true;
+                                playToStoreCompletionWaiter.notifyAll();
+                            }
+
+                        }
 			if (Store.getDEBUG()) {
 				String msg = getPrefix() + " doCheckpoint complete";
 				logger.log(Logger.DEBUG, msg);

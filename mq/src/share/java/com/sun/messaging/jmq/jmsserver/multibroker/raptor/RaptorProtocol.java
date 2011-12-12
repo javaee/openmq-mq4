@@ -4834,12 +4834,14 @@ abstract class ReplyWaiter {
         if (waittime > DEFAULT_WAIT_INTERVAL) waittime = DEFAULT_WAIT_INTERVAL;
         int loglevel = Logger.DEBUGHIGH;
 
+        int i = 0;
         while (waitStatus == WAITING) {
             try {
-                logger.log(loglevel, Globals.getBrokerResources().getKString(
-                           BrokerResources.I_CLUSTER_WAITING_REPLY,
-                           ProtocolGlobals.getPacketTypeDisplayString(protocol),
-                           currentParticipants()));
+                Object[] args = { Integer.valueOf(i++),
+                                  ProtocolGlobals.getPacketTypeDisplayString(protocol),
+                                  currentParticipants() };
+                logger.log(loglevel, Globals.getBrokerResources().getKTString(
+                          BrokerResources.I_CLUSTER_WAITING_REPLY, args));
                 wait(waittime);
             } catch (Exception e) {}
 

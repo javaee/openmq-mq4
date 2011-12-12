@@ -549,7 +549,7 @@ class BrokerConsumers implements Runnable, com.sun.messaging.jmq.util.lists.Even
                 if (ref == null) { // nothing we can do ?
                     return true;
                 }
-                if (ref.acknowledged(uid, storedcid, !uid.isDupsOK(), notify)) {
+                if (ref.acknowledged(uid, storedcid, !uid.isDupsOK(), notify, tuid, null, true)) {
                     if (tuid != null && fi.FAULT_INJECTION) {
                         fi.checkFaultAndExit(
                            FaultInjection.FAULT_MSG_REMOTE_ACK_HOME_C_TXNCOMMIT_1_7,
@@ -1083,14 +1083,22 @@ class BrokerConsumers implements Runnable, com.sun.messaging.jmq.util.lists.Even
         } 
 
         ackEntry entry = new ackEntry(sysid, cuid, null);
-        synchronized(deliveredMessages) {
-            ackEntry value = (ackEntry)deliveredMessages.remove(entry);
-            cleanupPendingConsumerUID(cuid, sysid);
+        ackEntry value = null;
 
             if (ackType == ClusterBroadcast.MSG_ACKNOWLEDGED) {
-                if (value == null) return true;
+                synchronized(deliveredMessages) {
+                    value = (ackEntry)deliveredMessages.remove(entry);
+                    cleanupPendingConsumerUID(cuid, sysid);
+                }
+                if (value == null) {
+                    return true;
+                }
                 return value.acknowledged(false);
             }
+
+        synchronized(deliveredMessages) {
+            value = (ackEntry)deliveredMessages.remove(entry);
+            cleanupPendingConsumerUID(cuid, sysid);
 
             if (ackType == ClusterBroadcast.MSG_DEAD ||
                 ackType == ClusterBroadcast.MSG_UNDELIVERABLE) {

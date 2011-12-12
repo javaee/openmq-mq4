@@ -54,6 +54,7 @@ import com.sun.messaging.jmq.jmsserver.core.DestinationUID;
 import com.sun.messaging.jmq.jmsserver.data.TransactionWorkMessage;
 import com.sun.messaging.jmq.jmsserver.persist.Store;
 import com.sun.messaging.jmq.jmsserver.util.BrokerException;
+import com.sun.messaging.jmq.jmsserver.util.WaitTimeoutException;
 import com.sun.messaging.jmq.util.log.Logger;
 
 /**
@@ -145,7 +146,8 @@ public class LoggedMessageHelper {
 	}
 	
 
-	public void waitForPendingRemoveCompletion() {
+	public void waitForPendingRemoveCompletion(boolean nowait) 
+        throws WaitTimeoutException {
 		synchronized (pendingRemove) {
 			if (Store.getDEBUG()) {
 				String msg = getPrefix() + " num pendingRemove ="
@@ -160,8 +162,12 @@ public class LoggedMessageHelper {
 								+ " pendingRemove";
 						logger.log(Logger.DEBUG, msg);
 					}
+                                        if (nowait) {
+                                            throw new WaitTimeoutException(this.getClass().getSimpleName());
+                                        }
 					pendingRemove.wait(1000);
 				}
+                                txnLogManager.notifyPlayToStoreCompletion();
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}

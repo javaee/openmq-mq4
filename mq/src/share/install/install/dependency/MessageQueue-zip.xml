@@ -50,7 +50,7 @@ onent.xsd">
     <Identifier feature="true">mq</Identifier>
     <Description>Oracle GlassFish(tm) Server Message Queue</Description>
     <IdentityVersion>
-      <VersionBaseline>4.5.1.0</VersionBaseline>
+      <VersionBaseline>4.5.2.0</VersionBaseline>
     </IdentityVersion>
     <Vendor>Oracle</Vendor>
     <Other>Java Enterprise System</Other>
@@ -96,7 +96,7 @@ onent.xsd">
       <Name>core</Name>
 
       <!-- Unix -->
-      <Realization version="4.5.1.0">
+      <Realization version="4.5.2.0">
         <OS>
           <Type>unix</Type>
           <Name>SunOS</Name>

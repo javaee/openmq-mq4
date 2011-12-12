@@ -1131,14 +1131,14 @@ public class Session implements EventBroadcaster, EventListener
                     // deal w/ orphan messages
                     TransactionUID tid = e.getTUID();
                     if (tid != null) {
+                        TransactionState ts = Globals.getTransactionList().retrieveState(tid, true);
                         JMQXid jmqxid = Globals.getTransactionList().UIDToXid(tid);
                         if (jmqxid != null) {
                             Globals.getTransactionList().addOrphanAck(
-                                    tid, e.getSysMessageID(), storeduid, cuid);
+                                tid, e.getSysMessageID(), storeduid, cuid);
                             itr.remove();
                             continue;
                         }
-                        TransactionState ts = Globals.getTransactionList().retrieveState(tid, true);
                         if (ts != null && ts.getState() == TransactionState.PREPARED) {
                             Globals.getTransactionList().addOrphanAck(
                                     tid, e.getSysMessageID(), storeduid, cuid);

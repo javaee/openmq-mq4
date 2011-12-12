@@ -615,15 +615,19 @@ public class Topic extends Destination
   
         Set matches = new HashSet();
         matches.add(c);
-        forwardMessage(matches, ref);      
+        forwardMessage(matches, ref, true);
     }
 
 
    public void forwardMessage(Set matching, PacketReference msg)
-         throws BrokerException
-   { 
-        Set remote = null;
+   throws BrokerException {
+       forwardMessage(matching, msg, false);
+   }
 
+   private void forwardMessage(Set matching, PacketReference msg, boolean ordered)
+   throws BrokerException { 
+
+        Set remote = null;
 
         if (matching == null || matching.isEmpty()) {
             removeMessage(msg.getSysMessageID(), RemoveReason.ACKNOWLEDGED); 
@@ -653,7 +657,7 @@ public class Topic extends Destination
                        remote.add(c);
                    } else {
                      
-                       if (!c.routeMessage(msg, false)) {
+                       if (!c.routeMessage(msg, false, ordered)) {
                            boolean acked = false;
                            try {
                                ConsumerUID cid = c.getConsumerUID();

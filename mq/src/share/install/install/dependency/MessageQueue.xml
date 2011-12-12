@@ -50,7 +50,7 @@ onent.xsd">
     <Identifier feature="true">mq</Identifier>
     <Description>Oracle GlassFish(tm) Server Message Queue</Description>
     <IdentityVersion>
-      <VersionBaseline>4.5.1.0</VersionBaseline>
+      <VersionBaseline>4.5.2.0</VersionBaseline>
     </IdentityVersion>
     <Vendor>Oracle</Vendor>
     <Other>Java Enterprise System</Other>
@@ -94,7 +94,7 @@ onent.xsd">
       <Name>core</Name>
 
       <!-- Solaris sparc and sparcv9 -->
-      <Realization version="4.5.1.0">
+      <Realization version="4.5.2.0">
         <OS>
           <Type>unix</Type>
           <Name>SunOS</Name>
@@ -121,7 +121,7 @@ onent.xsd">
       </Realization>
 
       <!-- Solaris x86 and x86_64 -->
-      <Realization version="4.5.1.0">
+      <Realization version="4.5.2.0">
         <OS>
           <Type>unix</Type>
           <Name>SunOS</Name>
@@ -148,7 +148,7 @@ onent.xsd">
       </Realization>
 
       <!-- Linux x86 and x86_64 -->
-      <Realization version="4.5-10">
+      <Realization version="4.5-20">
         <OS>
           <Type>unix</Type>
           <Name>linux</Name>
@@ -161,15 +161,15 @@ onent.xsd">
             <Item type="disk">17Mb</Item>
           </RequirementsRealization>
         </OS>
-        <InstallableUnit>sun-mq-install-4.5-10.i386.rpm</InstallableUnit>
-        <InstallableUnit>sun-mq-config-4.5-10.i386.rpm</InstallableUnit>
-        <InstallableUnit>sun-mq-var-4.5-10.i386.rpm</InstallableUnit>
-        <InstallableUnit>sun-mq-capi-4.5-10.i386.rpm</InstallableUnit>
-        <InstallableUnit>sun-mq-jaxm-4.5-10.i386.rpm</InstallableUnit>
-        <InstallableUnit>sun-mq-jmsclient-4.5-10.i386.rpm</InstallableUnit>
-        <InstallableUnit>sun-mq-xmlclient-4.5-10.i386.rpm</InstallableUnit>
-        <InstallableUnit>sun-mq-4.5-10.i386.rpm</InstallableUnit>
-        <InstallableUnit>sun-mq-ent-4.5-10.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-install-4.5-20.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-config-4.5-20.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-var-4.5-20.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-capi-4.5-20.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-jaxm-4.5-20.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-jmsclient-4.5-20.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-xmlclient-4.5-20.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-4.5-20.i386.rpm</InstallableUnit>
+        <InstallableUnit>sun-mq-ent-4.5-20.i386.rpm</InstallableUnit>
       </Realization>
 
       <!-- Windows x86 and x86_64 -->
