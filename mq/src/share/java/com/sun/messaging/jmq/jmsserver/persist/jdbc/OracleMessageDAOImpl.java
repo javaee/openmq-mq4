@@ -54,6 +54,7 @@ import com.sun.messaging.jmq.io.Packet;
 import com.sun.messaging.jmq.io.Status;
 
 import java.sql.*;
+import java.util.*;
 import java.io.IOException;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
@@ -108,12 +109,13 @@ class OracleMessageDAOImpl extends MessageDAOImpl {
      * @param storeSessionID the store session ID that owns the msg
      * @param createdTime timestamp
      * @param checkMsgExist check if message & destination exist in the store
+     * @param replaycheck true if replay needs to check previous insert succeeded
      * @exception com.sun.messaging.jmq.jmsserver.util.BrokerException if a message with the same id exists
      *  in the store already
      */
     public void insert( Connection conn, String dstID, Packet message,
         ConsumerUID[] conUIDs, int[] states, long storeSessionID, long createdTime,
-        boolean checkMsgExist ) throws BrokerException {
+        boolean checkMsgExist, boolean replaycheck ) throws BrokerException {
 
         boolean myConn = false;
         PreparedStatement pstmt = null;
@@ -126,7 +128,8 @@ class OracleMessageDAOImpl extends MessageDAOImpl {
             // Oracle Extensions for LOBs.
             if ( ! dbMgr.isOracleDriver() ) {
                 // Try generic implementation
-                super.insert( conn, dstID, message, conUIDs, states, storeSessionID, createdTime, checkMsgExist );
+                super.insert( conn, dstID, message, conUIDs, states, storeSessionID,
+                              createdTime, checkMsgExist, replaycheck );
                 return;
             }
 
@@ -146,14 +149,62 @@ class OracleMessageDAOImpl extends MessageDAOImpl {
             }
 
             if ( checkMsgExist ) {
-                if ( hasMessage( conn, id ) ) {
+                boolean hasmsg = false;
+                try {
+                    hasmsg = hasMessage( conn, id );
+                } catch (BrokerException e) {
+                    e.setSQLRecoverable(true);
+                    e.setSQLReplayCheck(replaycheck);
+                    throw e;
+                }
+                if ( hasmsg && replaycheck ) {
+                    if ( conUIDs != null ) {
+                        HashMap map = null;
+                        try {
+                            map = dbMgr.getDAOFactory().getConsumerStateDAO().getStates( conn, sysMsgID );
+                        } catch (BrokerException e) {
+                            e.setSQLRecoverable(true);
+                            e.setSQLReplayCheck(true);
+                            throw e;
+                        }
+                        List cids = Arrays.asList(conUIDs);
+                        Iterator itr = map.entrySet().iterator();
+                        Map.Entry pair = null;
+                        ConsumerUID cid = null;
+                        while (itr.hasNext()) {
+                            pair = (Map.Entry)itr.next();
+                            cid = (ConsumerUID)pair.getKey();
+                            int st = ((Integer)pair.getValue()).intValue();
+                            for (int i = 0; i < conUIDs.length; i++) {
+                                if (conUIDs[i].equals(cid)) {
+                                    if (states[i] == st) {
+                                        cids.remove(conUIDs[i]);
+                                    }
+                                }
+                            }
+                        }
+                        if (cids.size() == 0) {
+                            logger.log(Logger.INFO, BrokerResources.I_CANCEL_SQL_REPLAY, id+"["+dstID+"]"+cids);
+                            return;
+                        }
+                    } else {
+                        logger.log(Logger.INFO, BrokerResources.I_CANCEL_SQL_REPLAY, id+"["+dstID+"]");
+                        return;
+                    }
+                }
+                if ( hasmsg ) {
                     throw new BrokerException(
                         br.getKString(BrokerResources.E_MSG_EXISTS_IN_STORE, id, dstID ) );
                 }
-
-                dbMgr.getDAOFactory().getDestinationDAO().checkDestination( conn, dstID );
+                try {
+                    dbMgr.getDAOFactory().getDestinationDAO().checkDestination( conn, dstID );
+                } catch (BrokerException e) {
+                    if (e.getStatusCode() != Status.NOT_FOUND) {
+                        e.setSQLRecoverable(true);
+                    }
+                    throw e;
+                }
             }
-
             String sql = insertSQL;
             try {
                 pstmt = conn.prepareStatement( sql );
@@ -184,20 +235,22 @@ class OracleMessageDAOImpl extends MessageDAOImpl {
                 // Store the consumer's states if any
                 if ( conUIDs != null ) {
                     dbMgr.getDAOFactory().getConsumerStateDAO().insert(
-                        conn, dstID, sysMsgID, conUIDs, states, false );
+                        conn, dstID, sysMsgID, conUIDs, states, false, false );
                 }
-
+                
                 // Commit all changes
                 if ( myConn ) {
                     conn.commit();
                 }
             } catch ( Exception e ) {
                 myex = e;
+                boolean replayck = false;
                 try {
                     if ( (conn != null) && !conn.getAutoCommit() ) {
                         conn.rollback();
                     }
                 } catch ( SQLException rbe ) {
+                    replayck = true;
                     logger.log( Logger.ERROR, BrokerResources.X_DB_ROLLBACK_FAILED, rbe );
                 }
 
@@ -212,9 +265,14 @@ class OracleMessageDAOImpl extends MessageDAOImpl {
                     ex = e;
                 }
 
-                throw new BrokerException(
+                BrokerException be = new BrokerException(
                     br.getKString( BrokerResources.X_PERSIST_MESSAGE_FAILED,
                     id ), ex );
+                be.setSQLRecoverable(true);
+                if (replayck) {
+                    be.setSQLReplayCheck(true);
+                }
+                throw be;
             }
         } catch (BrokerException e) {
             myex = e;
@@ -306,7 +364,7 @@ class OracleMessageDAOImpl extends MessageDAOImpl {
             conStateDAO.deleteByMessageID( conn, sysMsgID );
             if ( conUIDs != null || states != null ) {
                 conStateDAO.insert(
-                    conn, toDst.toString(), sysMsgID, conUIDs, states, false );
+                    conn, toDst.toString(), sysMsgID, conUIDs, states, false, false );
             }
 
             // Commit all changes

@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2000-2010 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000-2012 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -188,6 +188,8 @@ public class XAResourceImpl implements XAResource, XAResourceForJMQ {
      */
     public void commit(Xid foreignXid, boolean onePhase) throws XAException {
     	
+        boolean insyncstate = false;
+
         if (_logger.isLoggable(Level.FINE)){
     		_logger.fine(_lgrPrefix+"("+this.hashCode()+") Commit  "+printXid(foreignXid)+" (onePhase="+onePhase+")");
         }
@@ -232,7 +234,7 @@ public class XAResourceImpl implements XAResource, XAResourceForJMQ {
             	}
             	
             	if ( _connection.isConnectedToHABroker) {
-            		HACommit(foreignXid, jmqXid, onePhase);
+            		HACommit(foreignXid, jmqXid, onePhase, insyncstate);
             	} else {
             	_connection.getProtocolHandler().commit(0L, (onePhase ? XAResource.TMONEPHASE : XAResource.TMNOFLAGS), jmqXid);
             	}
@@ -250,12 +252,13 @@ public class XAResourceImpl implements XAResource, XAResourceForJMQ {
                 if (!_session.isClosed) {
                     //set sync flag
                     _session.setInSyncState();
+                    insyncstate = true;
                     //ack all messages received in this session
                     _session.receiveCommit();
                 }
                 //Perform XA commit
                 if ( this._connection.isConnectedToHABroker) {
-                	this.HACommit(foreignXid, jmqXid, onePhase);
+                	this.HACommit(foreignXid, jmqXid, onePhase, insyncstate);
                     _session.clearUnackedMessageQ();
                 } else {
                 	_transaction.commitXATransaction(jmqXid, onePhase);
@@ -267,6 +270,9 @@ public class XAResourceImpl implements XAResource, XAResourceForJMQ {
         } catch (Exception jmse) {
             //Debug.println("*=*=*=*=*=*=*=*=*=*=XAR:commitXAException");
             Debug.printStackTrace(jmse);
+            if (jmse instanceof XAException) {
+                throw (XAException)jmse;
+            }
             XAException xae = new XAException(XAException.XAER_RMFAIL);
             xae.initCause(jmse);
             throw xae;
@@ -280,7 +286,9 @@ public class XAResourceImpl implements XAResource, XAResourceForJMQ {
             	xari.finishCommit();
 			}
             XAResourceMap.unregister(jmqXid);
-            _session.releaseInSyncState();
+            if (insyncstate) {
+                _session.releaseInSyncState();
+            }
         }
     }
 
@@ -545,7 +553,8 @@ public class XAResourceImpl implements XAResource, XAResourceForJMQ {
      * transaction, it should do so by raising an appropriate XAException
      * in the prepare method.
      */
-    private int prepare(Xid foreignXid, boolean onePhase) throws XAException {
+    private int prepare(Xid foreignXid, boolean onePhase, boolean insyncstate)
+    throws XAException {
         
     	if (_logger.isLoggable(Level.FINE)){
     		_logger.fine(_lgrPrefix+"XAResourceImpl ("+this.hashCode()+") Prepare     "+printXid(foreignXid));
@@ -643,12 +652,14 @@ public class XAResourceImpl implements XAResource, XAResourceForJMQ {
                         SessionImpl.sessionLogger.log(Level.SEVERE,
                         "Exception on rollback transaction "+jmqXid+" after prepare failed with remote exception", t); 
                     }
-                    try {
-                        _session.setInSyncState();
-                    } catch (Throwable t) {
-                        SessionImpl.sessionLogger.log(Level.SEVERE,
-                        "Exception on setting sync state after prepare "+jmqXid+" failed with remote exception", t); 
-                        throw xae;
+                    if (!insyncstate) {
+                        try {
+                            _session.setInSyncState();
+                        } catch (Throwable t) {
+                            SessionImpl.sessionLogger.log(Level.SEVERE,
+                            "Exception on setting sync state after prepare "+jmqXid+" failed with remote exception", t); 
+                            throw xae;
+                        }
                     }
                     try {
                         _session.recreateConsumers(true);
@@ -657,8 +668,57 @@ public class XAResourceImpl implements XAResource, XAResourceForJMQ {
                         "Exception on recreating consumers after prepare "+jmqXid+" failed with remote exception", t); 
                         throw xae; 
                     } finally {
-                        _session.releaseInSyncState();
+                        if (!insyncstate) {
+                            _session.releaseInSyncState();
+                        }
                     }
+                }
+            } else if (jmse instanceof TransactionPrepareStateFAILEDException) {
+                if (onePhase) {
+                    if (_transaction == null || _session.isClosed ||
+                        connectionConsumer != null) {
+                        try {
+            		    _connection.getProtocolHandler().rollback(0L, jmqXid,
+                                                       connectionConsumer != null);
+                            xae = new XAException(XAException.XA_RBROLLBACK);
+                            xae.initCause(jmse);
+                            lastInternalRBCache.put(this, jmqXid);
+                            lastInternalRB = true;
+                        } catch (Throwable t) {
+                            SessionImpl.sessionLogger.log(Level.SEVERE,
+                            "Exception on rollback after TransactionPrepareStateFAILEDException "+jmqXid, t); 
+                            throw xae;
+                        }
+                    } else {
+                        if (!insyncstate) {
+                            try {
+                                _session.setInSyncState();
+                            } catch (Throwable t) {
+                                SessionImpl.sessionLogger.log(Level.SEVERE,
+                                "Exception on setting sync state on TransactionPrepareStateFAILEDException "+jmqXid, t); 
+                                throw xae;
+                            }
+                        }
+                        try {
+                            _session.rollbackAfterReceiveCommit(jmqXid);
+                            xae = new XAException(XAException.XA_RBROLLBACK);
+                            xae.initCause(jmse);
+                            lastInternalRBCache.put(this, jmqXid);
+                            lastInternalRB = true;
+                        } catch (Throwable t) {
+                            SessionImpl.sessionLogger.log(Level.SEVERE,
+                            "Exception on rollback after TransactionPrepareStateFAILEDException "+jmqXid, t); 
+                            throw xae; 
+                        } finally {
+                            if (!insyncstate) {
+                                _session.releaseInSyncState();
+                            }
+                        }
+                    }
+
+                } else {
+                    xae = new XAException(XAException.XAER_RMERR);
+                    xae.initCause(jmse);
                 }
             }
 
@@ -1099,7 +1159,7 @@ public class XAResourceImpl implements XAResource, XAResourceForJMQ {
     	 
     	 try {
     		//two phase commit 
-    		this.prepare (foreignXid, false);
+    		this.prepare (foreignXid, false, false);
     	} catch (XAException xae) {
     		
     		if (_connection.isConnectedToHABroker) {
@@ -1197,26 +1257,31 @@ public class XAResourceImpl implements XAResource, XAResourceForJMQ {
      * @throws JMSException
      * @throws XAException
      */
-    private void HAOnePhaseCommit (Xid foreignXid, JMQXid jmqXid) throws JMSException, XAException {
+    private void HAOnePhaseCommit (Xid foreignXid, JMQXid jmqXid, boolean insyncstate)
+    throws JMSException, XAException {
     	
     	int tstate = Transaction.TRANSACTION_ENDED;
     		
     	try {
     		//prepare xa onephase commit
-    		this.prepare(foreignXid, true);
+    		this.prepare(foreignXid, true, insyncstate);
     			
     		tstate = Transaction.TRANSACTION_PREPARED;
     		
     		if (isXATracking()) {
             	xaTable.put(jmqXid, XAResourceForRA.XA_PREPARE);
-            }
+                }
     		
     		//param true is to indicate "JMQXAOnePhase" is needed
     		//for the commit protocol property.
     		_connection.getProtocolHandler().commit(0L, XAResource.TMNOFLAGS, jmqXid, true);
     	} catch (Exception jmse) {
-    		//check onephase commit status
-    		this.checkCommitStatus(jmse, tstate, jmqXid, true);
+                if ((jmse instanceof XAException) && 
+                    ((XAException)jmse).errorCode == XAException.XA_RBROLLBACK) {
+                    throw (XAException)jmse;
+                }
+                //check onephase commit status
+                this.checkCommitStatus(jmse, tstate, jmqXid, true);
     	}
     	
     	this.removeXid(jmqXid);
@@ -1348,11 +1413,11 @@ public class XAResourceImpl implements XAResource, XAResourceForJMQ {
         }
     }
     
-    private void HACommit (Xid foreignXid, JMQXid jmqXid, boolean onePhase) 
+    private void HACommit (Xid foreignXid, JMQXid jmqXid, boolean onePhase, boolean insyncstate) 
     	throws JMSException, XAException {
     	
     	if (onePhase) {
-    		this.HAOnePhaseCommit(foreignXid, jmqXid);
+    		this.HAOnePhaseCommit(foreignXid, jmqXid, insyncstate);
     	} else {
     		this.HATwoPhaseCommit(jmqXid);
     	}

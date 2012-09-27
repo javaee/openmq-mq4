@@ -595,7 +595,7 @@ class TidList {
      * the same transaction id does NOT exists the store already
      * @exception NullPointerException	if <code>id</code> is <code>null</code>
      */
-    void updateTransactionState(TransactionUID id, int ts, boolean sync)
+    void updateTransactionState(TransactionUID id, TransactionState tstate, boolean sync)
 	throws IOException, BrokerException {
 
         try {
@@ -609,9 +609,12 @@ class TidList {
             }
 
             TransactionState txnState = txnInfo.getTransactionState();
+            int ts = tstate.getState();
             if (txnState.getState() != ts) {
                 txnState.setState(ts);
-
+                if (tstate.getOnephasePrepare()) {
+                    txnState.setOnephasePrepare(true);
+                }
                 if (updateOptimization) {
                     // To improve I/O performance, just persist the new
                     // state as client data and not the whole record

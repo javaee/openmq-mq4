@@ -622,7 +622,8 @@ public interface BrokerCmdOptions  {
 				BrokerConstants.PROP_NAME_BKR_AUTOCREATE_QUEUE_MAX_ACTIVE_CONS,
 				BrokerConstants.PROP_NAME_BKR_AUTOCREATE_QUEUE_MAX_BACKUP_CONS,
 				BrokerConstants.PROP_NAME_BKR_LOG_DEAD_MSGS,
-				BrokerConstants.PROP_NAME_BKR_DMQ_TRUNCATE_MSG_BODY
+				BrokerConstants.PROP_NAME_BKR_DMQ_TRUNCATE_MSG_BODY,
+                                BrokerConstants.PROP_NAME_BKR_AUTOCREATE_DESTINATION_USE_DMQ
 							};
 
     public static String[] UPDATE_BKR_DEPRECATED_ATTRS	= {

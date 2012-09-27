@@ -1671,7 +1671,7 @@ public class IMQDirectService extends IMQService implements JMSService
 	}
 
 	try  {
-	    protocol.prepareTransaction(txnUID, xaFlags);
+	    protocol.prepareTransaction(txnUID, xaFlags, cxn);
 	} catch(BrokerException be)  {
 	    String errStr = "prepareTransaction: prepare transaction failed. Connection ID: "
 			    + connectionId

@@ -120,7 +120,7 @@ public interface TransactionDAO extends BaseDAO {
         throws BrokerException;
 
     void updateTransactionState( Connection conn, TransactionUID txnUID,
-        TransactionState state ) throws BrokerException;
+        TransactionState state, boolean replaycheck ) throws BrokerException;
 
     public void updateTransactionHomeBroker( Connection conn, TransactionUID txnUID,
         BrokerAddress txnHomeBroker) throws BrokerException;

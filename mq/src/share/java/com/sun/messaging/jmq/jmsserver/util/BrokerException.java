@@ -66,6 +66,9 @@ public class BrokerException extends Exception
     private boolean remote = false;
     private BrokerAddress remoteBroker = null;
     private String remoteConsumers = "";
+    private boolean sqlRecoverable = false;
+    private boolean sqlReplayCheck = false;
+    private boolean sqlReconnect = false;
 
     /**
      * create an exception with no message or root cause
@@ -179,6 +182,30 @@ public class BrokerException extends Exception
 
     public String getRemoteConsumerUIDs() {
         return remoteConsumers;
+    }
+
+    public void setSQLRecoverable(boolean b) {
+        sqlRecoverable = b;
+    }
+
+    public boolean getSQLRecoverable() {
+        return sqlRecoverable;
+    }
+
+    public void setSQLReplayCheck(boolean b) {
+        sqlReplayCheck = b;
+    }
+
+    public boolean getSQLReplayCheck() {
+        return sqlReplayCheck;
+    }
+
+    public void setSQLReconnect(boolean v) {
+        sqlReconnect = v;
+    }
+
+    public boolean getSQLReconnect() {
+        return sqlReconnect;
     }
 
 /*

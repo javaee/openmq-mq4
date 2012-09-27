@@ -706,7 +706,7 @@ public class ProtocolImpl implements Protocol
      * @param xaFlags  xaFlags passed on PREPARE operation. Used only if
      *                 an XA transaction.
      */
-     public void prepareTransaction(TransactionUID id, Integer xaFlags)
+     public void prepareTransaction(TransactionUID id, Integer xaFlags, IMQConnection con)
           throws BrokerException
      {
           if (DEBUG) {
@@ -718,7 +718,7 @@ public class ProtocolImpl implements Protocol
                       pr.getHandler(PacketType.START_TRANSACTION);
 
           TransactionState ts = handler.getTransactionList().retrieveState(id);
-          handler.doPrepare(id, xaFlags, ts, PacketType.PREPARE_TRANSACTION);
+          handler.doPrepare(id, xaFlags, ts, PacketType.PREPARE_TRANSACTION, con);
      }
 
 

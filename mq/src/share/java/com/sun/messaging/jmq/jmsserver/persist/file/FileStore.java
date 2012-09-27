@@ -1668,7 +1668,7 @@ public class FileStore extends Store implements CheckPointListener {
 	    }
 	    else
 	    {
-	        tidList.updateTransactionState(id, ts.getState(), sync);
+	        tidList.updateTransactionState(id, ts, sync);
 	    }
 	} finally {
 	    // decrement in progress count
@@ -2761,13 +2761,12 @@ public class FileStore extends Store implements CheckPointListener {
                     // Check to see if we need to commit the txn
                     if (tid > 0) {
                         TransactionUID tuid = new TransactionUID(tid);
-                        int state = tidList.getTransactionStateValue(tuid);
-                        if (state != TransactionState.NULL &&
-                            state != TransactionState.COMMITTED) {
+                        TransactionState state = tidList.getTransactionState(tuid);
+                        if (state.getState() != TransactionState.NULL &&
+                            state.getState() != TransactionState.COMMITTED) {
                             logger.log(logger.FORCE,
                                 BrokerResources.I_COMMIT_TXNLOG_RECORD, tidStr);
-                            tidList.updateTransactionState(tuid,
-                                TransactionState.COMMITTED, false);
+                            tidList.updateTransactionState(tuid, state, false);
                         }
                     }
 
@@ -2833,13 +2832,12 @@ public class FileStore extends Store implements CheckPointListener {
 
                     // Check to see if we need to commit the txn
                     TransactionUID tuid = new TransactionUID(tid);
-                    int state = tidList.getTransactionStateValue(tuid);
-                    if (state != TransactionState.NULL &&
-                        state != TransactionState.COMMITTED) {
+                    TransactionState state = tidList.getTransactionState(tuid);
+                    if (state.getState() != TransactionState.NULL &&
+                        state.getState() != TransactionState.COMMITTED) {
                         logger.log(logger.FORCE,
                             BrokerResources.I_COMMIT_TXNLOG_RECORD, tidStr);
-                        tidList.updateTransactionState(tuid,
-                            TransactionState.COMMITTED, false);
+                        tidList.updateTransactionState(tuid, state, false);
                     }
 
                     dis.close();

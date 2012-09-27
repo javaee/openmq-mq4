@@ -492,6 +492,13 @@ public class ServiceManager
      */
     public void resumeAllActiveServices(int service_type)
         throws BrokerException{
+         resumeAllActiveServices(service_type, false);
+    }
+
+    public void resumeAllActiveServices(int service_type, boolean startup)
+        throws BrokerException{
+
+        try {
 
         Set activeServices = getAllActiveServices();
         Iterator iter = activeServices.iterator();
@@ -504,6 +511,12 @@ public class ServiceManager
                 resumeService(name);
             }
                 
+        }
+
+        } finally {
+        if (startup) {
+            Globals.getTransactionList().postProcess();
+        }
         }
     }
 
@@ -519,8 +532,14 @@ public class ServiceManager
     }
 
     public void updateServiceList(List updatedsvcs, int service_type,
-          boolean pauseIfStarting ) 
+          boolean pauseIfStarting ) {
+        updateServiceList(updatedsvcs, service_type, pauseIfStarting, false);
+    }
+
+    public void updateServiceList(List updatedsvcs, int service_type,
+        boolean pauseIfStarting, boolean startup )
     {
+        try {
 
         // two stages ...
         // first stop/destroy no longer used services
@@ -612,6 +631,12 @@ public class ServiceManager
 		logger.log(Logger.ERROR, BrokerResources.E_ERROR_STARTING_SERVICE,service, ex);
 	    }
 	}
+
+        } finally {
+        if (startup) {
+            Globals.getTransactionList().postProcess();
+        }
+        }
     }
 
     public void addServiceRestriction(int service_type, ServiceRestriction svcres) {

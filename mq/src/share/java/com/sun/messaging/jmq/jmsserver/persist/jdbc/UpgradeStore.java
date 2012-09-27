@@ -461,7 +461,7 @@ public class UpgradeStore implements DBConstants {
                 }
 
                 msgDAO.insert( conn, dstID, msg, null, null,
-                    storeSessionID, createdTS, false );
+                    storeSessionID, createdTS, false, false );
 
                 String newMsgID = sysMsgID.toString();
                 oldIDToNewID.put(oldMsgID, newMsgID);

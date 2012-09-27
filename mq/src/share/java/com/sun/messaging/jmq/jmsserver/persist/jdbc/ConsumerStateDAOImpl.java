@@ -286,7 +286,7 @@ class ConsumerStateDAOImpl extends BaseDAOImpl implements ConsumerStateDAO {
      * @throws BrokerException
      */
     public void insert( Connection conn, String dstID, SysMessageID sysMsgID,
-        ConsumerUID[] conUIDs, int[] states, boolean checkMsgExist )
+        ConsumerUID[] conUIDs, int[] states, boolean checkMsgExist, boolean replaycheck )
         throws BrokerException {
 
         String msgID = sysMsgID.getUniqueName();
@@ -305,13 +305,60 @@ class ConsumerStateDAOImpl extends BaseDAOImpl implements ConsumerStateDAO {
 
             // No need to check for message existence
             if ( checkMsgExist ) {
-                if ( getConsumerCount( conn, msgID ) > 0 ) {
+                int cnt = -1;
+                try {
+                    cnt = getConsumerCount( conn, msgID );
+                } catch (BrokerException e) {
+                    e.setSQLRecoverable(true);
+                    e.setSQLReplayCheck(replaycheck);
+                    throw e;
+                }
+                if ( cnt > 0 && replaycheck) {
+                    if ( conUIDs != null ) {
+			HashMap map = null;
+			try {
+                            map = getStates( conn, sysMsgID );
+			} catch (BrokerException e) {
+                            e.setSQLRecoverable(true);
+                            e.setSQLReplayCheck(replaycheck);
+                            throw e;
+			}
+                        List cids = Arrays.asList(conUIDs);
+                        Iterator itr = map.entrySet().iterator();
+                        Map.Entry pair = null;
+                        ConsumerUID cid = null;
+                        while (itr.hasNext()) {
+                            pair = (Map.Entry)itr.next();
+                            cid = (ConsumerUID)pair.getKey();
+                            int st = ((Integer)pair.getValue()).intValue();
+                            for (int i = 0; i < conUIDs.length; i++) {
+				if (conUIDs[i].equals(cid)) {
+                                    if (states[i] == st) {
+                                        cids.remove(conUIDs[i]);
+                                    }
+                                }
+                            }
+                        }
+                        if (cids.size() == 0) {
+                            logger.log(Logger.INFO, BrokerResources.I_CANCEL_SQL_REPLAY, msgID+"["+dstID+"]"+cids);
+                            return;
+                        }
+                    }
+                }
+                if ( cnt > 0 ) {
                     // the message has a list already
                     throw new BrokerException(
                         br.getKString( BrokerResources.E_MSG_INTEREST_LIST_EXISTS, msgID ) );
                 }
 
-                dbMgr.getDAOFactory().getMessageDAO().checkMessage( conn, dstID, msgID );
+                try {
+                    dbMgr.getDAOFactory().getMessageDAO().checkMessage( conn, dstID, msgID );
+                } catch (BrokerException e) {
+                    if (e.getStatusCode() != Status.NOT_FOUND) {
+                        e.setSQLRecoverable(true);
+                    }
+                    throw e;
+                }
             }
 
             boolean dobatch = dbMgr.supportsBatchUpdates();
@@ -343,12 +390,13 @@ class ConsumerStateDAOImpl extends BaseDAOImpl implements ConsumerStateDAO {
                     + conUIDs[count].toString()
                     + "("+conUIDs[count].getUniqueName() + ")");
             }
-
+            boolean replayck = false;
             try {
                 if ( (conn != null) && !conn.getAutoCommit() ) {
                     conn.rollback();
                 }
             } catch ( SQLException rbe ) {
+                replayck = true;
                 logger.log( Logger.ERROR, BrokerResources.X_DB_ROLLBACK_FAILED, rbe );
             }
 
@@ -363,9 +411,14 @@ class ConsumerStateDAOImpl extends BaseDAOImpl implements ConsumerStateDAO {
                 ex = e;
             }
 
-            throw new BrokerException(
+            BrokerException be = new BrokerException(
                 br.getKString( BrokerResources.X_PERSIST_INTEREST_LIST_FAILED,
                 msgID ), ex );
+            be.setSQLRecoverable(true);
+            if (replayck) {
+                be.setSQLReplayCheck(true);
+            }
+            throw be;
         } finally {
             if ( myConn ) {
                 Util.close( null, pstmt, conn, myex );
@@ -385,7 +438,7 @@ class ConsumerStateDAOImpl extends BaseDAOImpl implements ConsumerStateDAO {
      * @throws BrokerException
      */
     public void updateState( Connection conn, DestinationUID dstUID,
-        SysMessageID sysMsgID, ConsumerUID conUID, int state )
+        SysMessageID sysMsgID, ConsumerUID conUID, int state, boolean replaycheck )
         throws BrokerException {
 
         String msgID = sysMsgID.getUniqueName();
@@ -402,8 +455,36 @@ class ConsumerStateDAOImpl extends BaseDAOImpl implements ConsumerStateDAO {
             }
 
             // Get the broker ID of the msg which also checks if the msg exists
-            String brokerID =
-                dbMgr.getDAOFactory().getMessageDAO().getBroker( conn, dstUID, msgID );
+            String brokerID = null;
+            if (Globals.getHAEnabled()) {
+                try {
+                    brokerID = dbMgr.getDAOFactory().getMessageDAO().getBroker( conn, dstUID, msgID );
+                } catch (BrokerException e) {
+                    if (e.getStatusCode() != Status.NOT_FOUND) {
+                        e.setSQLRecoverable(true);
+                        e.setSQLReplayCheck(replaycheck);
+                    }
+                    throw e;
+                }
+            } else {
+                brokerID = dbMgr.getBrokerID();
+            }
+            if (replaycheck) {
+                try {
+                    int currstate = getState( conn, sysMsgID, conUID);
+                    if (currstate == state) {
+                        logger.log(Logger.INFO, BrokerResources.I_CANCEL_SQL_REPLAY,
+                                   msgID+"["+dstUID+"]"+conUID+":"+state);
+                        return;
+                    }
+                } catch (BrokerException e) {
+                    if (e.getStatusCode() != Status.NOT_FOUND) {
+                        e.setSQLRecoverable(true);
+                        e.setSQLReplayCheck(true);
+                    }
+                    throw e;
+                }
+            }
 
             // For HA, state can only be udpated by the broker that owns the msg
             if ( Globals.getHAEnabled() && !dbMgr.getBrokerID().equals( brokerID ) ) {
@@ -433,11 +514,13 @@ class ConsumerStateDAOImpl extends BaseDAOImpl implements ConsumerStateDAO {
             }
         } catch ( Exception e ) {
             myex = e;
+            boolean replayck = false;
             try {
                 if ( (conn != null) && !conn.getAutoCommit() ) {
                     conn.rollback();
                 }
             } catch ( SQLException rbe ) {
+                replayck = true;
                 logger.log( Logger.ERROR, BrokerResources.X_DB_ROLLBACK_FAILED, rbe );
             }
 
@@ -450,9 +533,14 @@ class ConsumerStateDAOImpl extends BaseDAOImpl implements ConsumerStateDAO {
                 ex = e;
             }
 
-            throw new BrokerException(
+            BrokerException be = new BrokerException(
                 br.getKString( BrokerResources.X_PERSIST_INTEREST_STATE_FAILED,
                 conUID.toString(), sysMsgID.toString() ), ex );
+            be.setSQLRecoverable(true);
+            if (replayck) {
+                be.setSQLReplayCheck(true);
+            }
+            throw be;
         } finally {
             if ( myConn ) {
                 Util.close( null, pstmt, conn, myex );

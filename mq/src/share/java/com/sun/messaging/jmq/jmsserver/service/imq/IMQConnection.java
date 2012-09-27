@@ -601,6 +601,17 @@ public abstract class IMQConnection extends Connection
                     continue;
                 }
                 int tstate = ts.getState();
+                if (tstate == TransactionState.PREPARED &&
+                    ts.getOnephasePrepare()) {
+                    ts.detachedFromConnection();
+                    timeoutTIDs.add(tid);
+                    String[] args = { ""+tid+"(XID="+ts.getXid()+")",
+                                      TransactionState.toString(tstate)+"[onephase=true]",
+                                      getConnectionUID().toString() };
+                    logger.log(Logger.INFO, Globals.getBrokerResources().getKString(
+                               BrokerResources.I_CONN_CLEANUP_KEEP_TXN, args));
+                    continue;
+                }
                 if (ts.getXid() != null) {
                     if (xaretainall) {
                         if (!xaretainallLogged) {

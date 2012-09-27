@@ -1021,7 +1021,8 @@ public class Selector {
     /**
      * Validate expression
      * This does a simple, final syntax check before conversion to RPN.
-     * It detects invalid expressions such as "= red 'color'"
+     * It detects invalid expressions such as "= red 'color'" and
+     * "color = red AND AND shape = round"
      */
     private void validate(LinkedList in)
         throws SelectorFormatException {
@@ -1040,6 +1041,11 @@ public class Selector {
                    !isOperator(prevToken)) {
                     throw new SelectorFormatException(
                         "Missing operator", selector);
+                }
+            } else {  
+                if (prevToken == token.getToken() && prevToken != LEFT_PAREN && prevToken != RIGHT_PAREN) {
+                    throw new SelectorFormatException (
+                            "Missing operand", selector);
                 }
             }
 

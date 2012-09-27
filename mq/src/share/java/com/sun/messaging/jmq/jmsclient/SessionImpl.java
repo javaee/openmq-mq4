@@ -52,6 +52,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 
 import com.sun.messaging.jmq.io.*;
+import com.sun.messaging.jmq.util.JMQXid;
 import com.sun.messaging.AdministeredObject;
 import com.sun.messaging.jms.ra.ManagedConnection;
 import com.sun.messaging.jmq.jmsclient.resources.ClientResources;
@@ -3061,6 +3062,49 @@ public class SessionImpl implements Traceable {
         }
         //start message delivery
         resumeSession();
+    }
+
+
+    /**
+     * Caller must in setInSyncState block
+     *
+     * This method is used to rollback a transaction that failed to commit
+     * and broker indicates client runtime should rollback it
+     */
+    protected void rollbackAfterReceiveCommit(JMQXid jmqXid) throws JMSException {
+
+        checkSessionState();
+
+        //stop message delivery from broker
+        stopSession();
+        boolean stoppedbyme = false;
+        try {
+
+            //Have to stop *unless* it is the session thread
+            //otherwise the redeliver lists will be wrong
+            if ((Thread.currentThread() !=  sessionReader.sessionThread) &&
+                (Thread.currentThread() !=  serverSessionRunner.getCurrentThread())) {
+                stop();
+                stoppedbyme = true;
+            }
+            this.redeliverMessagesInQueues(false);
+
+            if ((Thread.currentThread() !=  sessionReader.sessionThread) &&
+                (Thread.currentThread() !=  serverSessionRunner.getCurrentThread())) {
+                start();
+                stoppedbyme = false;
+            }
+
+            connection.getProtocolHandler().rollback(0L, jmqXid, true);
+        } finally {
+            try {
+                if (stoppedbyme) {
+                    start();
+                }
+            } finally {
+                resumeSession();
+            }
+        }
     }
 
     /**

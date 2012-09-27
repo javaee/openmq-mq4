@@ -302,6 +302,11 @@ public class ConnectionImpl implements com.sun.messaging.jms.Connection,Traceabl
     protected int imqSocketConnectTimeout = 0;
 
     /**
+     * Port Mapper client socket read timeout
+     */
+    protected Integer imqPortMapperSoTimeout = null;
+    
+    /**
      * flag used for setting client ID.
      * If set to false, API user can not set clientID.
      */
@@ -1079,6 +1084,15 @@ public class ConnectionImpl implements com.sun.messaging.jms.Connection,Traceabl
                     imqPingInterval = tmp * 1000L;
                 }
             }
+
+            prop = getTrimmedProperty(ConnectionConfiguration.imqPortMapperSoTimeout);
+            if (prop != null) {
+                imqPortMapperSoTimeout = Integer.valueOf(prop);
+                if (imqPortMapperSoTimeout.intValue() < 0 ) {
+                    imqPortMapperSoTimeout = null;
+                }
+            }
+
 
             // XXX PROTOCOL2.1 --
             // Improved reconnect and connection failover.
@@ -3460,7 +3474,7 @@ public class ConnectionImpl implements com.sun.messaging.jms.Connection,Traceabl
         this.imqEnableSharedSubscriptions = flag;
     }
 
-    public synchronized boolean getEnableSharedSubscriptions (boolean flag) {        
+    public synchronized boolean getEnableSharedSubscriptions () {        
     	return this.imqEnableSharedSubscriptions;
     }
     
@@ -3492,6 +3506,10 @@ public class ConnectionImpl implements com.sun.messaging.jms.Connection,Traceabl
                 connectionLogger.log(Level.WARNING, info);
             }
     	}
+    }
+
+    public Integer getPortMapperSoTimeout(){
+    	return this.imqPortMapperSoTimeout;
     }
     
 }

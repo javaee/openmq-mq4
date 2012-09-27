@@ -57,6 +57,7 @@ import com.sun.messaging.jmq.jmsserver.persist.Store;
 import com.sun.messaging.jmq.jmsserver.util.BrokerException;
 import com.sun.messaging.jmq.jmsserver.FaultInjection;
 
+import java.io.IOException;
 import java.sql.*;
 import javax.sql.PooledConnection;
 import javax.sql.ConnectionEvent;
@@ -127,6 +128,9 @@ public class DBConnectionPool {
     private boolean isPoolDataSource = false;
     private String name = null;
     private boolean dedicated = false;
+
+    private Object invalidateAllTimestampLock = new Object();
+    private Long invalidateAllTimestamp = null; 
 
     private ConfigListener cfgListener = new ConfigListener() {
         public void validate(String name, String value)
@@ -476,7 +480,7 @@ public class DBConnectionPool {
     /**
      */
     private ConnectionInfo createConnection() throws BrokerException {
-        Object conn = dbmgr.newConnection();
+        Object conn = dbmgr.getNewConnection();
         ConnectionInfo cinfo = new ConnectionInfo(conn, connectionListener);
         connMap.put(conn, cinfo);
         return cinfo;
@@ -601,7 +605,14 @@ public class DBConnectionPool {
                 } 
             }
 
-            if (!validateConnection(cinfo, validateOnGet, true)) {
+            boolean valid = true;
+            Long invaltime = getInvalidateAllTimestamp(cinfo.getIdleStartTime()); 
+            if (invaltime != null &&
+                invaltime.longValue() >= cinfo.getIdleStartTime()) {
+                valid = false;
+            }
+
+            if (!valid || !validateConnection(cinfo, validateOnGet, true)) {
                  destroyConnection(cinfo);
 
                 try {
@@ -627,6 +638,7 @@ public class DBConnectionPool {
                     throw new BrokerException(cinfo+e.getMessage(), e);
                 }
             }
+
         }
 
         // move the connection in the activeConnections list
@@ -653,8 +665,19 @@ public class DBConnectionPool {
         }
 
         boolean destroy = false;
+        Throwable cause = ex;
+        if (ex instanceof BrokerException) {
+            cause  = ex.getCause();
+        }
+        if ((cause instanceof SQLException) || 
+            (cause instanceof IOException)) {
+            logger.log(Logger.INFO, 
+                br.getKString(br.I_DB_CONN_EX_TOBE_DESTROYED,
+                "0x"+conn.hashCode(), cause.toString())+toString());
+            destroy = true;
+        }
 
-        if (isPoolDataSource) {
+        if (!destroy && isPoolDataSource) {
             try {
                 conn.close();
                 return;
@@ -686,18 +709,17 @@ public class DBConnectionPool {
         returnConnection(cinfo, ex, destroy);
     }
 
-    protected void returnConnection(ConnectionInfo cinfo, Throwable ex) {
-        returnConnection(cinfo, ex, false);
-    }
-
     /**
      * @param destroy if true, only to be called from 
      *        connectionErrorOccurred for PooledConnection 
      */
-    protected void returnConnection(ConnectionInfo cinfo, Throwable ex, boolean destroy) {
+    private void returnConnection(ConnectionInfo cinfo, Throwable ex, boolean destroy) {
         if (dbmgr.getDEBUG() || DEBUG) {
 	    logger.log(Logger.INFO, toString()+".returnConnection: connection: "+cinfo+
             (ex == null ? "":", ex="+ex)+(!destroy ? "":", destroy="+destroy));
+        }
+        if (destroy && Util.isConnectionError(ex, dbmgr, false)) {
+            setInvalidateAllTimestamp();
         }
 
         Thread thread = activeConnections.remove(cinfo);
@@ -747,6 +769,26 @@ public class DBConnectionPool {
             }
             cinfo.idleStart();
             idleConnections.offer(cinfo);
+        }
+    }
+
+    private void setInvalidateAllTimestamp() {
+        Long ts = Long.valueOf(System.currentTimeMillis());
+        synchronized(invalidateAllTimestampLock) {
+            invalidateAllTimestamp = ts;
+        }
+    }
+
+    private Long getInvalidateAllTimestamp(long idleStartTime) {
+        synchronized(invalidateAllTimestampLock) {
+            if (invalidateAllTimestamp == null) {
+                return null;
+            }
+            if (idleStartTime > invalidateAllTimestamp.longValue()) {
+                invalidateAllTimestamp = null;
+                return null;
+            }
+            return invalidateAllTimestamp;
         }
     }
 
@@ -1049,7 +1091,22 @@ public class DBConnectionPool {
                 logger.log(logger.INFO, toString()+".connectionClosed event on "+cinfo);
             }
             if (!cinfo.inValidating()) {
-                returnConnection(cinfo, cinfo.getException());
+                boolean destroy = false;
+                Throwable e = cinfo.getException();
+                if (e != null) {
+                    Throwable cause = e;
+                    if (e instanceof BrokerException) {
+                        cause  = e.getCause();
+                    }
+                    if ((cause instanceof SQLException) ||
+                        (cause instanceof IOException)) {
+                         logger.log(Logger.INFO, 
+                             br.getKString(br.I_DB_CONN_EX_TOBE_DESTROYED,
+                             cinfo.toString(), cause.toString())+toString());
+                             destroy = true;
+                    } 
+                }
+                returnConnection(cinfo, cinfo.getException(), destroy);
             }
         }
 

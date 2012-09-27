@@ -92,11 +92,11 @@ public interface ConsumerStateDAO extends BaseDAO {
     public static final String CREATED_TS_COLUMN = "CREATED_TS";
 
     void insert( Connection conn, String dstID, SysMessageID sysMsgID,
-        ConsumerUID[] consumerUIDs, int[] states, boolean checkMsgExist )
+        ConsumerUID[] consumerUIDs, int[] states, boolean checkMsgExist, boolean replaycheck )
         throws BrokerException;
 
     void updateState( Connection conn, DestinationUID dstUID,
-        SysMessageID sysMsgID, ConsumerUID consumerUID, int state )
+        SysMessageID sysMsgID, ConsumerUID consumerUID, int state, boolean replaycheck )
         throws BrokerException;
 
     void updateState( Connection conn, DestinationUID dstUID,

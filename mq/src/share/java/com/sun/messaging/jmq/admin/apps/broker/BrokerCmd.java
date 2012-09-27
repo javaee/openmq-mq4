@@ -1677,7 +1677,7 @@ public class BrokerCmd implements BrokerCmdOptions, BrokerConstants  {
 	     */
             Properties attrs = brokerCmdProps.getTargetAttrs();
             String maxValue, autoCreateValue, deliveryPolicyValue, logLevelValue,
-			logDeadMsgs, truncateBody;
+			logDeadMsgs, truncateBody, useDMQ;
 
             maxValue = attrs.getProperty(PROP_NAME_BKR_PRIMARY_PORT);
  	    if (maxValue != null)
@@ -1757,6 +1757,11 @@ public class BrokerCmd implements BrokerCmdOptions, BrokerConstants  {
  	    if (truncateBody != null)
 	        checkBooleanValue
 		    (brokerCmdProps, PROP_NAME_BKR_DMQ_TRUNCATE_MSG_BODY, truncateBody);
+            
+            useDMQ = attrs.getProperty(PROP_NAME_BKR_AUTOCREATE_DESTINATION_USE_DMQ);
+ 	    if (useDMQ != null)
+	        checkBooleanValue
+		    (brokerCmdProps, PROP_NAME_BKR_AUTOCREATE_DESTINATION_USE_DMQ, useDMQ);
 
 	    /*
 	     * Check for unlimited values.

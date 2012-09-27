@@ -258,18 +258,19 @@ public class JDBCStore extends Store implements DBConstants {
         checkClosedAndSetInProgress();
 
         try {
+            boolean replaycheck = false;
             Util.RetryStrategy retry = null;
             do {
                 try {
                     daoFactory.getMessageDAO().insert(null, dst, message, iids,
-                        states, storeSessionID, message.getTimestamp(), checkMsgExist);
+                        states, storeSessionID, message.getTimestamp(), checkMsgExist, replaycheck);
                     return;
                 } catch ( Exception e ) {
                     // Exception will be log & re-throw if operation cannot be retry
                     if ( retry == null ) {
                         retry = new Util.RetryStrategy();
                     }
-                    retry.assertShouldRetry( e );
+                    replaycheck = retry.assertShouldRetry( e );
                 }
             } while ( true );
         } finally {
@@ -366,17 +367,18 @@ public class JDBCStore extends Store implements DBConstants {
 	checkClosedAndSetInProgress();
 
 	try {
+            boolean replaycheck = false;
             Util.RetryStrategy retry = null;
             do {
                 try {
-                    daoFactory.getMessageDAO().delete(null, dID, mID);
+                    daoFactory.getMessageDAO().delete(null, dID, mID, replaycheck);
                     return;
                 } catch ( Exception e ) {
                     // Exception will be log & re-throw if operation cannot be retry
                     if ( retry == null ) {
                         retry = new Util.RetryStrategy();
                     }
-                    retry.assertShouldRetry( e );
+                    replaycheck = retry.assertShouldRetry( e );
                 }
             } while ( true );
 	} finally {
@@ -737,18 +739,19 @@ public class JDBCStore extends Store implements DBConstants {
 	checkClosedAndSetInProgress();
 
 	try {
+            boolean replaycheck = false;
             Util.RetryStrategy retry = null;
             do {
                 try {
                     daoFactory.getConsumerStateDAO().insert(
-                        null, dID.toString(), mID, iids, states, true);
+                        null, dID.toString(), mID, iids, states, true, replaycheck);
                     return;
                 } catch ( Exception e ) {
                     // Exception will be log & re-throw if operation cannot be retry
                     if ( retry == null ) {
                         retry = new Util.RetryStrategy();
                     }
-                    retry.assertShouldRetry( e );
+                    replaycheck = retry.assertShouldRetry( e );
                 }
             } while ( true );
 	} finally {
@@ -792,17 +795,18 @@ public class JDBCStore extends Store implements DBConstants {
 	checkClosedAndSetInProgress();
 
 	try {
+            boolean replaycheck = false;
             Util.RetryStrategy retry = null;
             do {
                 try {
-                    daoFactory.getConsumerStateDAO().updateState(null, dID, mID, iID, state);
+                    daoFactory.getConsumerStateDAO().updateState(null, dID, mID, iID, state, replaycheck);
                     return;
                 } catch ( Exception e ) {
                     // Exception will be log & re-throw if operation cannot be retry
                     if ( retry == null ) {
                         retry = new Util.RetryStrategy();
                     }
-                    retry.assertShouldRetry( e );
+                    replaycheck = retry.assertShouldRetry( e );
                 }
             } while ( true );
 	} finally {
@@ -1636,17 +1640,18 @@ public class JDBCStore extends Store implements DBConstants {
 	checkClosedAndSetInProgress();
 
 	try {
+            boolean replaycheck = false;
             Util.RetryStrategy retry = null;
             do {
                 try {
-                    daoFactory.getTransactionDAO().updateTransactionState(null, id, ts);
+                    daoFactory.getTransactionDAO().updateTransactionState(null, id, ts, replaycheck);
                     return;
                 } catch ( Exception e ) {
                     // Exception will be log & re-throw if operation cannot be retry
                     if ( retry == null ) {
                         retry = new Util.RetryStrategy();
                     }
-                    retry.assertShouldRetry( e );
+                    replaycheck = retry.assertShouldRetry( e );
                 }
             } while ( true );
 	} finally {
@@ -2708,7 +2713,7 @@ public class JDBCStore extends Store implements DBConstants {
                     if ( retry == null ) {
                         // Override default so total retry time is 30 secs
                         retry = new Util.RetryStrategy(dbmgr,
-                            DBManager.TRANSACTION_RETRY_DELAY_DEFAULT, 4);
+                            DBManager.TRANSACTION_RETRY_DELAY_DEFAULT, 4, true);
                     }
                     retry.assertShouldRetry( e );
                 }
@@ -2736,7 +2741,7 @@ public class JDBCStore extends Store implements DBConstants {
                     if ( retry == null ) {
                         // Override default so total retry time is 30 secs
                         retry = new Util.RetryStrategy(dbmgr,
-                            DBManager.TRANSACTION_RETRY_DELAY_DEFAULT, 4);
+                            DBManager.TRANSACTION_RETRY_DELAY_DEFAULT, 4, false, true);
                     }
                     retry.assertShouldRetry( e );
                 }
@@ -3014,7 +3019,7 @@ public class JDBCStore extends Store implements DBConstants {
                     if ( retry == null ) {
                         // Override default so total retry time is about 1 min
                         retry = new Util.RetryStrategy(dbmgr,
-                            DBManager.TRANSACTION_RETRY_DELAY_DEFAULT, 5);
+                            DBManager.TRANSACTION_RETRY_DELAY_DEFAULT, 5, false, true);
                     }
                     retry.assertShouldRetry( e );
                 }
@@ -3039,7 +3044,8 @@ public class JDBCStore extends Store implements DBConstants {
                 } catch ( Exception e ) {
                     // Exception will be log & re-throw if operation cannot be retry
                     if ( retry == null ) {
-                        retry = new Util.RetryStrategy();
+                        retry = new Util.RetryStrategy(dbmgr,
+                            DBManager.TRANSACTION_RETRY_DELAY_DEFAULT, 5, true);
                     }
                     retry.assertShouldRetry( e );
                 }

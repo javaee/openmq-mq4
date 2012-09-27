@@ -52,6 +52,7 @@ import com.sun.messaging.jmq.jmsserver.Globals;
 import com.sun.messaging.jmq.jmsserver.resources.*;
 import com.sun.messaging.jmq.jmsserver.persist.Store;
 import com.sun.messaging.jmq.jmsserver.persist.jdbc.Util;
+import com.sun.messaging.jmq.jmsserver.BrokerStateHandler;
 
 import java.io.*;
 import java.sql.*;
@@ -79,6 +80,19 @@ public abstract class CommDBManager {
     public static final int TRANSACTION_RETRY_MAX_DEFAULT = 5;
 	public static final long TRANSACTION_RETRY_DELAY_DEFAULT = 2000;
 
+    private static final int CONNECTION_RETRY_MAX_DEFAULT = 60;
+    private static final long CONNECTION_RETRY_DELAY_DEFAULT = 5000; //millisec
+    private static final String CONNECTION_RETRY_MAX_PROP_SUFFIX =
+        ".connection.retry.max";
+    private static final String CONNECTION_RETRY_DELAY_PROP_SUFFIX =
+        ".connection.retry.delay";
+
+    private static final String CONNECTION_RETRY_REGEX_PROP_SUFFIX =
+        ".connection.retry.regex";
+
+    private static final String SQL_RETRIABLE_ERROR_CODES_PROP_SUFFIX =
+        ".sqlRetriableErrorCodes";
+
     protected static final String VENDOR_PROP_SUFFIX = ".dbVendor";
     protected static final String FALLBACK_USER_PROP_SUFFIX = ".user";
     protected static final String FALLBACK_PWD_PROP_SUFFIX = ".password";
@@ -101,6 +115,9 @@ public abstract class CommDBManager {
     public int txnRetryMax;    // Max number of retry
     public long txnRetryDelay; // Number of milliseconds to wait between retry
 
+    public int connRetryMax = CONNECTION_RETRY_MAX_DEFAULT;
+    public long connRetryDelay = CONNECTION_RETRY_DELAY_DEFAULT;
+
     // database connection
     private String driver = null;
     private String openDBUrl = null;
@@ -119,6 +136,7 @@ public abstract class CommDBManager {
     protected boolean isOraDriver = false;
     private boolean isMysql = false;
     private boolean isDerby = false;
+    private boolean isDB2 = false;
     private boolean supportBatch = false;
     private boolean supportGetGeneratedKey = false;
     private String dbProductName = null;
@@ -136,6 +154,11 @@ public abstract class CommDBManager {
 
     // HashMap of database tables. table name->TableSchema
     protected HashMap tableSchemas = new HashMap();
+
+    private ArrayList<String> reconnectPatterns = new ArrayList<String>();
+    private static final String DEFAULT_CONNECTION_RETRY_PATTERN  = "(?s).*";
+
+    private ArrayList<Integer> sqlRetriableErrorCodes = new ArrayList<Integer>();
 
     /**
      */
@@ -227,6 +250,40 @@ public abstract class CommDBManager {
         return vendor;
     }
 
+    public List<String> getReconnectPatterns() {
+        return reconnectPatterns;
+    }
+
+    private ConfigListener cfgListener = new ConfigListener() {
+        public void validate(String name, String value)
+            throws PropertyUpdateException {
+            if (name.equals(getJDBCPropPrefix()+CONNECTION_RETRY_DELAY_PROP_SUFFIX)) {
+                long v = -1L;
+                try {
+                    v = Long.parseLong(value);
+                } catch (Exception e) {
+                    throw new PropertyUpdateException(
+                        PropertyUpdateException.InvalidSetting, br.getString(
+                        BrokerResources.X_BAD_PROPERTY_VALUE, name + "=" + value), e);
+                }
+                if (v < 0L) {
+                    throw new PropertyUpdateException(
+                        PropertyUpdateException.InvalidSetting, name+"="+value);
+                }
+            }
+        }
+        public boolean update(String name, String value) {
+            BrokerConfig cfg = Globals.getConfig();
+            if (name.equals(getJDBCPropPrefix()+CONNECTION_RETRY_DELAY_PROP_SUFFIX)) {
+                connRetryDelay = cfg.getLongProperty(getJDBCPropPrefix()+CONNECTION_RETRY_DELAY_PROP_SUFFIX);
+            } else if (name.equals(getJDBCPropPrefix()+CONNECTION_RETRY_MAX_PROP_SUFFIX)) {
+                connRetryMax = cfg.getIntProperty(getJDBCPropPrefix()+CONNECTION_RETRY_MAX_PROP_SUFFIX);
+            }
+            return true;
+        }
+    };
+
+
     protected void initDBManagerProps() throws BrokerException {
 
         String JDBC_PROP_PREFIX = getJDBCPropPrefix();
@@ -237,6 +294,28 @@ public abstract class CommDBManager {
         txnRetryDelay = config.getLongProperty(
             JDBC_PROP_PREFIX+TRANSACTION_RETRY_DELAY_PROP_SUFFIX,
             TRANSACTION_RETRY_DELAY_DEFAULT);
+        if (txnRetryDelay < 0L) {
+            txnRetryDelay = TRANSACTION_RETRY_DELAY_DEFAULT;
+        }
+
+        connRetryMax = config.getIntProperty(
+            JDBC_PROP_PREFIX+CONNECTION_RETRY_MAX_PROP_SUFFIX,
+            CONNECTION_RETRY_MAX_DEFAULT );
+        logger.log(logger.INFO, JDBC_PROP_PREFIX+
+                   CONNECTION_RETRY_MAX_PROP_SUFFIX+"="+connRetryMax);
+        connRetryDelay = config.getLongProperty(
+            JDBC_PROP_PREFIX+CONNECTION_RETRY_DELAY_PROP_SUFFIX,
+            CONNECTION_RETRY_DELAY_DEFAULT);
+        if (connRetryDelay < 0L) {
+            connRetryDelay = CONNECTION_RETRY_DELAY_DEFAULT;
+        }
+        logger.log(logger.INFO, JDBC_PROP_PREFIX+JDBC_PROP_PREFIX+
+                   CONNECTION_RETRY_DELAY_PROP_SUFFIX+"="+connRetryDelay);
+
+        Globals.getConfig().addListener(
+            JDBC_PROP_PREFIX+CONNECTION_RETRY_MAX_PROP_SUFFIX, cfgListener);
+        Globals.getConfig().addListener(
+            JDBC_PROP_PREFIX+CONNECTION_RETRY_DELAY_PROP_SUFFIX, cfgListener);
 
         // get store type and double check that 'jdbc' is specified
         String type = config.getProperty(getStoreTypeProp());
@@ -331,7 +410,50 @@ public abstract class CommDBManager {
             }
         }
 
+        String regex = vendorPropPrefix + CONNECTION_RETRY_REGEX_PROP_SUFFIX;
+        int i = 1;
+        String p = null;
+        String v = null;
+        while (true) {
+            p = regex+"."+i++;
+            v = config.getProperty(p);
+            if (v == null) {
+                break;
+            }
+            try {
+                 "A".matches(v);
+                 reconnectPatterns.add(v);
+                 logger.log(logger.INFO, p+"="+v);
+            } catch (Exception e) {
+                 throw new BrokerException("["+p+"="+v+"]: "+e.toString(), e);               
+            }
+        }
+        if (reconnectPatterns.size() == 0) {
+            reconnectPatterns.add(DEFAULT_CONNECTION_RETRY_PATTERN);
+            logger.log(logger.INFO, regex+"="+DEFAULT_CONNECTION_RETRY_PATTERN);
+        }
+        String sqlRetriablesp  =  vendorPropPrefix+SQL_RETRIABLE_ERROR_CODES_PROP_SUFFIX; 
+        String sqlRetriablesv = config.getProperty(sqlRetriablesp);
+        List<String> sqlRetriables = (List<String>)config.getList(sqlRetriablesp);
+        if (sqlRetriables != null && sqlRetriables.size() > 0) {
+            logger.log(logger.INFO, sqlRetriablesp+"="+sqlRetriablesv);
+            Integer val = null;
+            for (String ecode : sqlRetriables) {
+                 try {
+                     val = Integer.valueOf(ecode);
+                     sqlRetriableErrorCodes.add(val);
+                 } catch (Exception e) {
+                     String[] eargs = { ecode, sqlRetriablesp+"="+sqlRetriablesv, e.toString() };
+                     logger.log(logger.WARNING, 
+                         br.getKString(br.W_IGNORE_VALUE_IN_PROPERTY_LIST, eargs)); 
+                 }
+            }
+        }
+
         initTableSuffix();
+    }
+    public boolean isRetriableSQLErrorCode(int errorCode) {
+        return sqlRetriableErrorCodes.contains(Integer.valueOf(errorCode));
     }
 
     protected abstract void initTableSuffix() throws BrokerException;
@@ -384,7 +506,7 @@ public abstract class CommDBManager {
             Connection conn = null;
             String dbName = null;
             try {
-                conn = newConnection(true);
+                conn = getNewConnection(true);
                 DatabaseMetaData dbMetaData = conn.getMetaData();
                 dbName = dbMetaData.getDatabaseProductName();
             } catch (Exception e) {
@@ -417,6 +539,8 @@ public abstract class CommDBManager {
             isMysql = true;
         } else if ( vendor.equalsIgnoreCase( "derby" ) ) {
             isDerby = true;
+        } else if ( vendor.equalsIgnoreCase( "db2" ) ) {
+            isDB2 = true;
         }
     }
 
@@ -540,10 +664,8 @@ public abstract class CommDBManager {
                 try {
                     conn.close();
                 } catch(SQLException sqe) {
-                    logger.logStack(Logger.WARNING,
-                        Globals.getBrokerResources().getKString(
-                            BrokerResources.E_INTERNAL_BROKER_ERROR,
-                            "Unable to close JDBC resources", e), e);
+                    logger.logStack(Logger.WARNING, 
+                    "Unable to close JDBC connection: "+sqe+ " after SQLException ", e);
                 }
             }
             throw new BrokerException(br.getKString(
@@ -557,10 +679,9 @@ public abstract class CommDBManager {
      * Create a new database connection either from the DataSource or
      * the DriverManager using the OPENDB_URL.
      */
-    public Connection 
-    newConnection(boolean autocommit) throws BrokerException {
+    public Connection getNewConnection(boolean autocommit) throws BrokerException {
 
-        Object c = newConnection();
+        Object c = newConnection(true);
 
         if (c instanceof PooledConnection) {
             final PooledConnection pc = (PooledConnection)c;
@@ -632,7 +753,11 @@ public abstract class CommDBManager {
         }
     }
 
-    protected Object newConnection() throws BrokerException {
+    protected Object getNewConnection() throws BrokerException {
+        return newConnection(false);
+    }
+
+    protected Object newConnection(boolean doRetry) throws BrokerException {
 
         // make database connection; database should already exist
         Util.RetryStrategy retry = null;
@@ -673,9 +798,12 @@ public abstract class CommDBManager {
                 }
 
             } catch (BrokerException e) {
+                if (!doRetry) {
+                    throw e;
+                }
                 // Exception will be log & re-throw if operation cannot be retry
                 if ( retry == null ) {
-                    retry = new Util.RetryStrategy(this);
+                    retry = new Util.RetryStrategy(this, connRetryDelay, connRetryMax, true);
                 }
                 retry.assertShouldRetry( e );
             }
@@ -683,9 +811,29 @@ public abstract class CommDBManager {
     }
 
 
+    public Connection getConnection(boolean autocommit)
+    throws BrokerException {
+        Util.RetryStrategy retry = null;
+        do {
+            try {
+                Connection conn = getConnectionNoRetry(autocommit);
+                return conn;
+            } catch (BrokerException e) {
+                if (BrokerStateHandler.storeShutdownStage1) {
+                    throw e;
+                }
+                // Exception will be log & re-throw if operation cannot be retry
+                if ( retry == null ) {
+                    retry = new Util.RetryStrategy(this, connRetryDelay, connRetryMax, true);
+                }
+                retry.assertShouldRetry( e );
+            }
+        } while (true);
+    }
+
     /**
      */
-    public Connection getConnection(boolean autocommit)
+    public Connection getConnectionNoRetry(boolean autocommit)
     throws BrokerException {
 
         Exception exception = null;
@@ -777,6 +925,10 @@ public abstract class CommDBManager {
 
     public boolean isDerby() {
         return isDerby;
+    }
+
+    public boolean isDB2() {
+        return isDB2;
     }
     
     public boolean isOracle() {
@@ -946,11 +1098,11 @@ public abstract class CommDBManager {
     
     public static SQLException
     wrapSQLException(String msg, SQLException e) {
-        SQLException e2 = new SQLException(
+        SQLException e2 = new MQSQLException(
             msg + ": " + e.getMessage()+
             "["+e.getSQLState()+", "+e.getErrorCode()+"]",
             e.getSQLState(), e.getErrorCode());
-        e2.setNextException(e);
+        e2.initCause(e);
         return e2;
     }
 
@@ -1235,6 +1387,61 @@ public abstract class CommDBManager {
                 logger.logStack( Logger.WARNING,
                     "Failed to enable HADB's JDBC driver logging", e );
             }
+        }
+    }
+
+    public static final Class TRANSIENT_SQLEX_CLASS = GET_TRANSIENT_SQLEX_CLASS();
+    public static final Class NON_TRANSIENT_SQLEX_CLASS = GET_NONTRANSIENT_SQLEX_CLASS();
+    public static final Class RECOVERABLE_SQLEX_CLASS = GET_RECOVERABLE_SQLEX_CLASS();
+    public static final Class TRANSIENT_CONNECTION_SQLEX_CLASS = GET_TRANSIENT_CONNECTION_SQLEX_CLASS();
+    public static final Class TIMEOUT_SQLEX_CLASS = GET_TIMEOUT_SQLEX_CLASS();
+    public static final Class TRANSACTION_ROLLBACK_SQLEX_CLASS = GET_TRANSACTION_ROLLBACK_SQLEX_CLASS();
+
+    private static Class GET_TRANSIENT_SQLEX_CLASS() {
+        try {
+            return Class.forName("java.sql.SQLTransientException");
+        } catch (ClassNotFoundException e) {
+            return null;
+        }
+    }
+
+    private static Class GET_RECOVERABLE_SQLEX_CLASS() {
+        try {
+            return Class.forName("java.sql.SQLRecoverableException");
+        } catch (ClassNotFoundException e) {
+            return null;
+        }
+    }
+
+    private static Class GET_NONTRANSIENT_SQLEX_CLASS() {
+        try {
+            return Class.forName("java.sql.SQLNonTransientException");
+        } catch (ClassNotFoundException e) {
+            return null;
+        }
+    }
+
+    private static Class GET_TRANSIENT_CONNECTION_SQLEX_CLASS() {
+        try {
+            return Class.forName("java.sql.SQLTransientConnectionException");
+        } catch (ClassNotFoundException e) {
+            return null;
+        }
+    }
+
+    private static Class GET_TRANSACTION_ROLLBACK_SQLEX_CLASS() {
+        try {
+            return Class.forName("java.sql.SQLTransactionRollbackException");
+        } catch (ClassNotFoundException e) {
+            return null;
+        }
+    }
+
+    private static Class GET_TIMEOUT_SQLEX_CLASS() {
+        try {
+            return Class.forName("java.sql.SQLTimeoutException");
+        } catch (ClassNotFoundException e) {
+            return null;
         }
     }
 }

@@ -402,7 +402,7 @@ public interface Protocol
      * @param xaFlags  xaFlags passed on PREPARE operation. Used only if
      *                 an XA transaction.
      */
-     public void prepareTransaction(TransactionUID id, Integer xaFlags)
+     public void prepareTransaction(TransactionUID id, Integer xaFlags, IMQConnection con)
           throws BrokerException;
 
 

@@ -548,7 +548,16 @@ public class ConnectionConfiguration {
     public static final String imqAbortOnPingAckTimeout = "imqAbortOnPingAckTimeout";
 
     /**
-     * This property indicates whether Sun MQ should set the JMSXAppID
+     * This property defines port mapper client socket read timeout, in milliseconds.
+     * <p>
+     * A value of 0 indicates no timeout
+     * <p>
+     * The value of this property is not set by default.
+     * <p>
+     */
+    public static final String imqPortMapperSoTimeout = "imqPortMapperSoTimeout";
+
+    /**     * This property indicates whether Sun MQ should set the JMSXAppID
      * property on produced messages.
      * <p>
      * The default value of this property is <code><b>false</b></code>

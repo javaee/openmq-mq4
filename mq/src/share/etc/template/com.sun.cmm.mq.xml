@@ -123,7 +123,7 @@
        The InstalledProduct's Build Number.
        --> 
        <param-name>BuildNumber</param-name>   
-       <param-value>2</param-value> 
+       <param-value>3</param-value> 
     </parameter>
     
     <parameter> 
@@ -139,7 +139,7 @@
        The InstalledProduct's Revision
        --> 
        <param-name>RevisionNumber</param-name>   
-       <param-value>4.5.1</param-value> 
+       <param-value>4.5.2</param-value> 
     </parameter>
     
     <parameter>
@@ -188,7 +188,7 @@
        The scoping Product's version.
        -->    
        <param-name>ProductVersion</param-name>   
-       <param-value>4.5.1.0</param-value>
+       <param-value>4.5.2.1</param-value>
     </parameter>
     
     

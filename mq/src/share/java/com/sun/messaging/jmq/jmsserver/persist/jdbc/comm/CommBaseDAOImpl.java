@@ -374,7 +374,7 @@ public abstract class CommBaseDAOImpl implements BaseDAO {
         String tableName = getTableName();
         String sql = null;
 
-        if ( dbMgr.isOracle() ) {
+        if ( dbMgr.isOracle() && whereClause == null) {
             sql = new StringBuffer(128)
                 .append( "TRUNCATE TABLE " ).append( tableName )
                 .toString();

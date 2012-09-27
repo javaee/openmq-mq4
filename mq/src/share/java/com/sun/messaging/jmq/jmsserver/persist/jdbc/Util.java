@@ -52,6 +52,7 @@ import com.sun.messaging.jmq.jmsservice.BrokerEvent;
 import com.sun.messaging.jmq.jmsserver.resources.*;
 import com.sun.messaging.jmq.jmsserver.persist.HABrokerInfo;
 import com.sun.messaging.jmq.jmsserver.persist.jdbc.comm.CommDBManager;
+import com.sun.messaging.jmq.jmsserver.persist.jdbc.comm.MQSQLException;
 import com.sun.messaging.jmq.jmsserver.util.BrokerException;
 import com.sun.messaging.jmq.jmsserver.util.StoreBeingTakenOverException;
 import com.sun.messaging.jmq.io.MQObjectInputStream;
@@ -62,6 +63,7 @@ import java.sql.*;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Iterator;
 
 /**
  * Contains utility functions.
@@ -582,6 +584,8 @@ public class Util implements DBConstants {
         int retryCount = 0;                 // Keep track # retries
         int retryMax;                       // Max number of retry
         long delayTime;                     // Keep track of delay time
+        boolean retryConnect = false;
+        boolean retryConnectRequestOnly = false;
 
         public RetryStrategy() throws BrokerException {
             this( DBManager.getDBManager() );
@@ -589,16 +593,21 @@ public class Util implements DBConstants {
 
         // Bootstrap constructor
         public RetryStrategy( CommDBManager mgr ) {
-            dbMgr = mgr;
-            delayTime = mgr.txnRetryDelay;
-            retryMax = mgr.txnRetryMax;
+            this(mgr, mgr.txnRetryDelay, mgr.txnRetryMax, false, false);
         }
 
         public RetryStrategy( CommDBManager mgr,
-                              long retryDelay, int max ) {
+                              long retryDelay, int max, boolean retryConnect ) {
+            this(mgr, retryDelay, max, retryConnect, false);
+        }
+        public RetryStrategy( CommDBManager mgr,
+                              long retryDelay, int max, boolean retryConnect, 
+                              boolean retryConnectRequestOnly ) {
             dbMgr = mgr;
             delayTime = retryDelay;
             retryMax = max;
+            this.retryConnect = retryConnect;
+            this.retryConnectRequestOnly = retryConnectRequestOnly;
         }
 
         /**
@@ -609,7 +618,12 @@ public class Util implements DBConstants {
          * @param e the exception
          * @throws BrokerException
          */
-        public void assertShouldRetry( Exception e ) throws BrokerException {
+        public boolean assertShouldRetry( Exception e ) throws BrokerException {
+
+            boolean replaycheck = false;
+            boolean transientretry = false;
+            boolean recoverableretry = false;
+            boolean matchretry = false;
 
             // Save the original exception
             if ( originalException == null ) {
@@ -633,10 +647,27 @@ public class Util implements DBConstants {
             Throwable cause = e;
 
             // Get cause of exception if it is wrapped in a BrokerException
-            if ( e instanceof BrokerException ) {
-                cause = e.getCause();
+            Throwable tmpe = e;
+            while ( tmpe instanceof BrokerException ) {
+                tmpe = tmpe.getCause();
+                if (tmpe == null) {
+                    break;
+                }
+                if ((tmpe instanceof SQLException) ||
+                    (tmpe instanceof IOException)) {
+                    cause = tmpe;
+                    break;
+                }
             }
 
+            if (cause instanceof MQSQLException) {
+                cause = ((SQLException)cause).getNextException();
+            } else if (cause instanceof IOException) {
+                if (isConnectionError(cause, dbMgr, false)) {
+                    cause = new SQLException(cause.getMessage());
+                }
+            }
+            
             boolean retry = false;  // Assume operation cannot be retry
 
             if ( cause instanceof SQLException ) {
@@ -644,7 +675,114 @@ public class Util implements DBConstants {
                 int errorCode = ex.getErrorCode();
                 String sqlState = ex.getSQLState();
 
-                if ( dbMgr.isHADB() ) {
+                if (retryConnect || 
+                    (retryConnectRequestOnly && 
+                     (e instanceof BrokerException) && 
+                      ((BrokerException)e).getSQLReconnect())) {
+                    if (dbMgr.TRANSIENT_CONNECTION_SQLEX_CLASS != null &&
+                        dbMgr.TRANSIENT_CONNECTION_SQLEX_CLASS.isInstance(ex)) {
+                        retry = true;
+                        transientretry = true;
+                    } else if ((dbMgr.TRANSIENT_SQLEX_CLASS != null &&
+                                dbMgr.TRANSIENT_SQLEX_CLASS.isInstance(ex)) ||
+                               (sqlState != null && 
+                                (sqlState.startsWith("08") ||
+                                (sqlState.startsWith("40"))))) {
+                        retry = true;
+                        transientretry = true;
+                    } else if (dbMgr.TIMEOUT_SQLEX_CLASS != null &&
+                               dbMgr.TIMEOUT_SQLEX_CLASS.isInstance(ex)) {
+                        retry = true;
+                    } else if (dbMgr.TRANSACTION_ROLLBACK_SQLEX_CLASS != null &&
+                               dbMgr.TRANSACTION_ROLLBACK_SQLEX_CLASS.isInstance(ex)) {
+                        retry = true;
+                    } else if (dbMgr.RECOVERABLE_SQLEX_CLASS != null &&
+                               dbMgr.RECOVERABLE_SQLEX_CLASS.isInstance(ex)) {
+                        retry = true;
+                        recoverableretry = true;
+                    } else {
+                        List<String> paterns = dbMgr.getReconnectPatterns();
+                        Iterator<String> itr = paterns.iterator();
+                        String p = null;
+                        while (itr.hasNext()) {
+                            try {
+                                p = itr.next();
+                                if (ex.getMessage().matches(p)) { 
+                                    matchretry = true;
+                                    retry = true;
+                                    break;
+                                } 
+                            } catch (Exception ee) {
+                                Globals.getLogger().logStack(Logger.WARNING, ee.getMessage(), ee);
+                            }
+                        }
+                    }
+                }
+
+                if (retry) {
+                } else if (dbMgr.TRANSIENT_SQLEX_CLASS != null &&
+                           dbMgr.TRANSIENT_SQLEX_CLASS.isInstance(ex)) {
+                    retry = true;
+                    transientretry = true;
+                } else if (dbMgr.RECOVERABLE_SQLEX_CLASS != null &&
+                           dbMgr.RECOVERABLE_SQLEX_CLASS.isInstance(ex)) {
+                    if (e instanceof BrokerException) {
+                        if (((BrokerException)e).getSQLRecoverable()) {
+                            retry = true;
+                            recoverableretry = true;
+                        }
+                        if (((BrokerException)e).getSQLReplayCheck()) {
+                            replaycheck = true;
+                        }
+                    }
+                } else if (sqlState != null) {
+                    if (sqlState.startsWith("40") ||
+                        sqlState.startsWith("08")) {
+                        if (e instanceof BrokerException) {
+                            if (((BrokerException)e).getSQLRecoverable()) {
+                                retry = true;
+                                recoverableretry = true;
+                            }
+                            if (((BrokerException)e).getSQLReplayCheck()) {
+                                replaycheck = true;
+                            }
+                        }
+                    }
+                } else if (isConnectionError(ex, dbMgr, false)) {
+                    if (e instanceof BrokerException) {
+                        if (((BrokerException)e).getSQLRecoverable()) {
+                            retry = true;
+                            recoverableretry = true;
+                        }
+                        if (((BrokerException)e).getSQLReplayCheck()) {
+                            replaycheck = true;
+                        }
+                    }
+                }
+
+                if (!retry) {
+                    if (e instanceof BrokerException) {
+                        if (((BrokerException)e).getSQLRecoverable()) {
+                            if (dbMgr.isOracle()) {
+                                if (errorCode == 30006 ||
+                                    errorCode == 28) /*00028*/ {
+                                    retry = true;
+                                    recoverableretry = true;
+                                }
+                            }
+                            if (!retry && dbMgr.isRetriableSQLErrorCode(errorCode)) { 
+                                retry = true;
+                                recoverableretry = true;
+                            }
+                            if (((BrokerException)e).getSQLReplayCheck()) {
+                                replaycheck = true;
+                            }
+                        }
+                    }
+                }
+
+                if (retry) {
+                } else if ( dbMgr.isHADB() ) {
                     retry =
                         errorCode == 224        // The operation timed out
                         || errorCode == 2078    // Wrong dictionary version no
@@ -693,7 +831,8 @@ public class Util implements DBConstants {
                 Globals.getLogger().log(Logger.INFO, Globals.getBrokerResources().getKString(
                     BrokerResources.I_RETRY_DB_OP, retryCount+","+delayTime, cause.getMessage()+
                     (cause instanceof SQLException ? "["+((SQLException)cause).getErrorCode()+
-                    "]["+((SQLException)cause).getSQLState()+"]":"")));
+                    "]["+((SQLException)cause).getSQLState()+"]":""))+
+                    "("+transientretry+","+recoverableretry+"["+replaycheck+"]"+","+matchretry+")");
                 try {
                     Thread.sleep( delayTime );
                 } catch (Exception ie) {}
@@ -703,10 +842,11 @@ public class Util implements DBConstants {
                     "Attempt to retry database operation due to unexpected error [retryCount="
                     + retryCount + ", delayTime=" + delayTime + "]", e );
 
-                // Increase the retry delay by doubling it for each pass
-                delayTime *= 2;
+                if (!(retryConnect && !retryConnectRequestOnly)) {
+                    delayTime *= 2;
+                }
 
-                return;
+                return replaycheck;
             }
 
             // Operation cannot be retry, so log & re-throw the original exception
@@ -723,7 +863,15 @@ public class Util implements DBConstants {
         }
     }
 
+    /**
+     */
     public static boolean isConnectionError(Throwable t, CommDBManager mgr) {
+        return isConnectionError(t, mgr, true);
+    }
+
+    public static boolean isConnectionError(Throwable t,
+        CommDBManager mgr, boolean aggressiveOnNPDS) {
+
         Throwable cause = t;
 
         if (t instanceof com.sun.messaging.jmq.jmsserver.util.DestinationNotFoundException ||
@@ -737,20 +885,38 @@ public class Util implements DBConstants {
 
         if (t instanceof BrokerException) {
             cause = t.getCause();
+        } 
+        if (cause instanceof MQSQLException) {
+            cause = ((MQSQLException)cause).getNextException(); 
         }
-
-        if (!(cause instanceof SQLException)) {
+        
+        if (!(cause instanceof SQLException) &&
+            !(cause instanceof IOException)) {
             return false;
         }
 
-        if (!mgr.isPoolDataSource()) {
+        if (aggressiveOnNPDS && !mgr.isPoolDataSource()) {
             return true;
         }
 
-        SQLException ex = (SQLException)cause;
-        int eCode = ex.getErrorCode();
-        String eMessage = ex.getMessage(); 
-        String eSQLState = ex.getSQLState();
+        int eCode = 0;
+        String eSQLState = null;
+        String eMessage = cause.getMessage();
+
+        if (cause instanceof SQLException) {
+            eCode = ((SQLException)cause).getErrorCode();
+            eSQLState = ((SQLException)cause).getSQLState();
+        }
+
+        if (mgr.TRANSIENT_CONNECTION_SQLEX_CLASS != null &&
+            mgr.TRANSIENT_CONNECTION_SQLEX_CLASS.isInstance(cause)) {
+            return true;
+        }
+
+        if (mgr.RECOVERABLE_SQLEX_CLASS != null &&
+            mgr.RECOVERABLE_SQLEX_CLASS.isInstance(cause)) {
+            return true;
+        }
 
         if (mgr.isMysql()) {
             if (eMessage.contains("Communication link failure")) {
@@ -763,6 +929,20 @@ public class Util implements DBConstants {
                 return true;
             }
             if (eCode == 1205 || eMessage.contains("Lock wait timeout exceeded")) {
+                return true;
+            }
+        } else if (mgr.isOracle()) {
+            if (eMessage.toLowerCase().contains("connection timed out")) {
+                return true;
+            }
+            if (eCode == 30006 ||
+                eCode == 54 ||
+                eCode == 28 ||
+                eCode == 12514 ||
+                eCode == 12505 ||
+                eCode == 1089 ||
+                eCode == 1033 ||
+                eCode == 12528) {
                 return true;
             }
         }

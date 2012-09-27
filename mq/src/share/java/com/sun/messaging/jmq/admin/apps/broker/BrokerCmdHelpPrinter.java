@@ -234,6 +234,10 @@ public class BrokerCmdHelpPrinter implements CommonHelpPrinter, BrokerCmdOptions
 	row[0] = indent + PROP_NAME_BKR_DMQ_TRUNCATE_MSG_BODY;
 	row[1] = ar.getString(ar.I_BKR_DMQ_TRUNCATE_MSG_BODY);
 	bcp.add(row);
+        
+	row[0] = indent + PROP_NAME_BKR_AUTOCREATE_DESTINATION_USE_DMQ;
+	row[1] = ar.getString(ar.I_BKR_AUTOCREATE_DESTINATION_USE_DMQ);
+	bcp.add(row);
 		
 	bcp.print();		
 

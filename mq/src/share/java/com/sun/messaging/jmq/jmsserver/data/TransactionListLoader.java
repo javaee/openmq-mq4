@@ -128,6 +128,10 @@ public class TransactionListLoader {
 			transactionList.addTransactionID(tid, state, false);
 			TransactionWork txnWork = baseTxn.getTransactionWork();
 			handleTransactionWork(transactionList,tid, txnWork);
+                        if (state.getState() == TransactionState.PREPARED &&
+                            state.getOnephasePrepare()) {
+                            transactionList.addDetachedTransactionID(tid);
+                        }
 		}
 	}
 
@@ -137,7 +141,10 @@ public class TransactionListLoader {
 				.getIncompleteTransactions(BaseTransaction.CLUSTER_TRANSACTION_TYPE);
 		String msg = " loading " + incompleteTxns.size()
 				+ " incomplete cluster transactions:  ";
-		logger.log(Logger.DEBUG, msg);
+
+                if (transactionList.DEBUG_CLUSTER_TXN) {
+                    logger.log(Logger.INFO, msg);
+                }
 		Iterator<BaseTransaction> iter = incompleteTxns.iterator();
 		while (iter.hasNext()) {
 			ClusterTransaction clusterTxn = (ClusterTransaction) iter.next();
@@ -155,7 +162,13 @@ public class TransactionListLoader {
 					transactionBrokers, true, false);
 			TransactionWork txnWork = clusterTxn.getTransactionWork();
 			if (state.getState() == TransactionState.PREPARED) {
-				handleTransactionWork(transactionList, tid, txnWork);
+                            if (transactionList.DEBUG_CLUSTER_TXN) {
+                                logger.log(Logger.INFO, "Loading cluster transaction "+tid+"["+state+"]");
+                            }
+                            handleTransactionWork(transactionList, tid, txnWork);
+                            if (state.getOnephasePrepare()) {
+                                transactionList.addDetachedTransactionID(tid);
+                            }
 			} else if (state.getState() == TransactionState.COMMITTED) {
 				// incomplete cluster transaction
 				// the work has already been committed locally but

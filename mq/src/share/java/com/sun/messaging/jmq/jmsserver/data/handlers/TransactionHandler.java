@@ -59,6 +59,7 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.Vector;
+import java.util.Properties;
 
 import javax.transaction.xa.XAResource;
 
@@ -93,6 +94,7 @@ import com.sun.messaging.jmq.jmsserver.data.TransactionUID;
 import com.sun.messaging.jmq.jmsserver.data.TransactionWork;
 import com.sun.messaging.jmq.jmsserver.data.TransactionWorkMessage;
 import com.sun.messaging.jmq.jmsserver.data.TransactionWorkMessageAck;
+import com.sun.messaging.jmq.jmsserver.data.handlers.admin.DebugHandler;
 import com.sun.messaging.jmq.jmsserver.management.agent.Agent;
 import com.sun.messaging.jmq.jmsserver.resources.BrokerResources;
 import com.sun.messaging.jmq.jmsserver.service.imq.IMQBasicConnection;
@@ -137,17 +139,18 @@ public class TransactionHandler extends PacketHandler
 
     public void sendReply(IMQConnection con, Packet msg, 
                           int type, int status, long tid, String reason) {
-        sendReply(con, msg, type, status, tid, reason, null);
+        sendReply(con, msg, type, status, tid, reason, null, null, 0L);
     }
 
     public void sendReply(IMQConnection con, Packet msg, int type, 
             int status, long tid, String reason, BrokerException bex)
     {
-    	sendReply(con, msg, type, status, tid, reason, bex, 0);
+    	sendReply(con, msg, type, status, tid, reason, bex, null, 0L);
     }
 
     public void sendReply(IMQConnection con, Packet msg, int type, 
-                int status, long tid, String reason, BrokerException bex, long nextTid)
+                          int status, long tid, String reason, 
+                          BrokerException bex, Map props, long nextTid)
     {
          if (fi.FAULT_INJECTION)
             checkFIAfterProcess(msg.getPacketType());
@@ -156,20 +159,29 @@ public class TransactionHandler extends PacketHandler
           pkt.setConsumerID(msg.getConsumerID());
           Hashtable hash = new Hashtable();
           hash.put("JMQStatus", new Integer(status));
-          if (reason != null)
+          if (reason != null) {
               hash.put("JMQReason", reason);
+          }
           if (tid != 0) {
             hash.put("JMQTransactionID", new Long(tid));
           }
           if (bex != null && bex.isRemote()) {
-            hash.put("JMQRemote", Boolean.valueOf(true));
-            if (bex.getRemoteConsumerUIDs() != null) {
-            hash.put("JMQRemoteConsumerIDs", bex.getRemoteConsumerUIDs());
-            }
+              hash.put("JMQRemote", Boolean.valueOf(true));
+              if (bex.getRemoteConsumerUIDs() != null) {
+                  hash.put("JMQRemoteConsumerIDs", bex.getRemoteConsumerUIDs());
+              }
           }
-          if(nextTid!=0)
+          if (props != null) {
+              Iterator itr = props.keySet().iterator();
+              Object key = null;
+              while (itr.hasNext()) {
+                  key = itr.next();
+                  hash.put(key, props.get(key));
+              }
+          }
+          if(nextTid!=0) {
         	  hash.put("JMQNextTransactionID", new Long(nextTid));
-
+          }
          
           pkt.setProperties ( hash );
 	      con.sendControlMessage(pkt);
@@ -577,7 +589,6 @@ public class TransactionHandler extends PacketHandler
                 } catch (Exception ex) {
                     status = Status.ERROR;
                     logger.logStack(Logger.ERROR,
-                           BrokerResources.E_INTERNAL_BROKER_ERROR,
                            ex.toString() + ": TUID=" + id + " Xid=" + xid, ex);
                     reason = ex.getMessage();
                     if (ex instanceof BrokerException) {
@@ -605,8 +616,9 @@ public class TransactionHandler extends PacketHandler
                 break;
             case PacketType.PREPARE_TRANSACTION:
                 BrokerException bex = null;
+                HashMap tmpp = null;
                 try {
-                    doPrepare(id, xaFlags, ts, msg.getPacketType(), jmqonephase, null);
+                    doPrepare(id, xaFlags, ts, msg.getPacketType(), jmqonephase, null, con);
                 } catch (Exception ex) {
                     status = Status.ERROR;
                     if ((!(ex instanceof BrokerDownException) && 
@@ -622,9 +634,14 @@ public class TransactionHandler extends PacketHandler
                         status = ((BrokerException)ex).getStatusCode();
                         bex = (BrokerException)ex;
                     }
+                    if (ts.getState() == TransactionState.FAILED) {
+                        tmpp = new HashMap(); 
+                        tmpp.put("JMQPrepareStateFAILED", Boolean.valueOf(true));
+                    }
                 }
+
                 sendReply(con, msg,  msg.getPacketType() + 1, status, 
-                          id.longValue(), reason, bex);
+                          id.longValue(), reason, bex, tmpp, 0L);
                 break;
             case PacketType.RECOVER_TRANSACTION:
 
@@ -717,8 +734,16 @@ public class TransactionHandler extends PacketHandler
                     status = ex.getStatusCode();
                     reason = ex.getMessage();
                     if (msg.getSendAcknowledge()) {
+                        HashMap tmppp = null;
+                        if (!jmqonephase &&
+                            TransactionState.isFlagSet(XAResource.TMONEPHASE, xaFlags)) {
+                            if (ts.getState() == TransactionState.FAILED) {
+				tmppp = new HashMap();
+				tmppp.put("JMQPrepareStateFAILED", Boolean.valueOf(true));
+                            }
+                        }
                         sendReply(con, msg,  msg.getPacketType() + 1, status, 
-                                  id.longValue(), reason, ex);
+                                  id.longValue(), reason, ex, tmppp, 0L);
                     } else {
                         if (fi.FAULT_INJECTION) {
                             checkFIAfterProcess(msg.getPacketType());
@@ -787,7 +812,7 @@ public class TransactionHandler extends PacketHandler
                 
                 if (msg.getSendAcknowledge()) {
                     sendReply(con, msg,  msg.getPacketType() + 1, status,
-                        id.longValue(), reason, null, nextTxnID);
+                        id.longValue(), reason, null, null, nextTxnID);
                 } else {
                     if (fi.FAULT_INJECTION) {
                         checkFIAfterProcess(msg.getPacketType());
@@ -1033,7 +1058,7 @@ public class TransactionHandler extends PacketHandler
             // c) a prepared (XA or not) CLUSTER transaction
             
             // currently, all cluster transactions are 2 phase
-            BaseTransaction baseTransaction = doRemoteCommit(id, xaFlags, ts, s, msg, txnWork);
+            BaseTransaction baseTransaction = doRemoteCommit(id, xaFlags, ts, s, msg, txnWork, con);
             if (Globals.isNewTxnLogEnabled()) {
 					if (ts.getState() == TransactionState.PREPARED) {
 						// commit called (from client) on 2-phase transaction
@@ -1130,7 +1155,9 @@ public class TransactionHandler extends PacketHandler
                 d.forwardMessage(s,ref);
 
              } catch (Exception ex) {
-                 logger.logStack((BrokerStateHandler.shuttingDown? Logger.DEBUG : Logger.ERROR),BrokerResources.E_INTERNAL_BROKER_ERROR, "unable to route/send transaction message " + sysid , ex);
+                 logger.logStack(
+                     (BrokerStateHandler.shuttingDown? Logger.DEBUG : Logger.ERROR),
+                     ex.getMessage()+"["+sysid+"]TUID="+id, ex);
              }
 
         }
@@ -1466,7 +1493,7 @@ public class TransactionHandler extends PacketHandler
 
 		if (sendReply) { // chiaming
 			sendReply(con, msg, PacketType.COMMIT_TRANSACTION_REPLY, status, id
-					.longValue(), reason, null, nextTxnID);
+					.longValue(), reason, null, null, nextTxnID);
 		}
 	}
 
@@ -1672,7 +1699,6 @@ public class TransactionHandler extends PacketHandler
             logger.log(Logger.ERROR, ex.toString());
             } else {
             logger.log(Logger.ERROR,
-                    BrokerResources.E_INTERNAL_BROKER_ERROR,
                     ex.toString() + ": TUID=" + id + " Xid=" + xid);
 	    }
             throw ex;
@@ -2144,13 +2170,15 @@ public class TransactionHandler extends PacketHandler
      * @param msg Client prepare packet.
      */
     public void doPrepare(TransactionUID id, Integer xaFlags, 
-                   TransactionState ts, int pktType) throws BrokerException {
-           doPrepare(id, xaFlags, ts, pktType, false,null);
+                   TransactionState ts, int pktType, IMQConnection con)
+                   throws BrokerException {
+           doPrepare(id, xaFlags, ts, pktType, false, null, con);
     }
 
     public BaseTransaction doPrepare(TransactionUID id, Integer xaFlags, 
                           TransactionState ts, int pktType, 
-                          boolean onephasePrepare, TransactionWork txnWork) throws BrokerException {
+                          boolean onephasePrepare, TransactionWork txnWork, IMQConnection con)
+                          throws BrokerException {
 
     	BaseTransaction baseTransaction = null;
     	boolean persist = true;
@@ -2175,6 +2203,7 @@ public class TransactionHandler extends PacketHandler
         try {
             TransactionState nextState = new TransactionState(ts);
             nextState.setState(s);
+            nextState.setOnephasePrepare(true);
             baseTransaction = doRemotePrepare(id, ts, nextState, txnWork);
             if(baseTransaction==null)
             {
@@ -2195,6 +2224,20 @@ public class TransactionHandler extends PacketHandler
             }
             translist.updateState(id, s, onephasePrepare, persist);
             prepared = true;
+            if (fi.FAULT_INJECTION) {
+                if (fi.checkFault(fi.FAULT_TXN_PREPARE_3_KILL_CLIENT, null)) {
+                    fi.unsetFault(fi.FAULT_TXN_PREPARE_3_KILL_CLIENT);
+                    Properties p = new Properties();
+                    p.setProperty("kill.jvm", "true");
+                    try {
+                        DebugHandler.sendClientDEBUG(con, (new Hashtable()), p);
+                    } catch (IOException e) {
+                        logger.log(logger.WARNING, "TransactionHandler: Unable to sendClientDEBUG: e.toString()");
+                    }
+                }
+                fi.checkFaultAndExit(FaultInjection.FAULT_TXN_PREPARE_2_0, null, 2, false);
+            }
+
             try {
                 Agent agent = Globals.getAgent();
                 if (agent != null) agent.notifyTransactionPrepare(id);
@@ -2218,6 +2261,12 @@ public class TransactionHandler extends PacketHandler
             throw new BrokerException("Unexpected state "+nextState+" for transactionID:"+id);
         }
         HashMap bmmap =  retrieveConsumedRemoteMessages(id, false);
+        if (fi.FAULT_INJECTION) {
+            if (fi.checkFault(fi.FAULT_MSG_REMOTE_ACK_C_TXNPREPARE_0_5, null)) {
+		fi.unsetFault(fi.FAULT_MSG_REMOTE_ACK_C_TXNPREPARE_0_5);
+		throw new BrokerException(fi.FAULT_MSG_REMOTE_ACK_C_TXNPREPARE_0_5);
+            }
+        }
         if (bmmap == null) return null;
         if (Globals.getClusterBroadcast().getClusterVersion() < 
             ClusterBroadcast.VERSION_410) {
@@ -2409,7 +2458,7 @@ public class TransactionHandler extends PacketHandler
    
     private BaseTransaction doRemoteCommit(TransactionUID id, Integer xaFlags, 
                                 TransactionState ts, int nextState, Packet msg,
-                                TransactionWork txnWork)
+                                TransactionWork txnWork, IMQConnection con)
                                 throws BrokerException {
         if (nextState != TransactionState.COMMITTED) {
             throw new BrokerException("Unexpected next state: "+nextState+" for transaction "+id); 
@@ -2438,7 +2487,7 @@ public class TransactionHandler extends PacketHandler
                     ts.setState(TransactionState.COMPLETE);
                     xaFlags = new Integer(XAResource.TMNOFLAGS);
                 }
-                baseTransaction = doPrepare(id, xaFlags, ts, p.getPacketType(), true, txnWork);
+                baseTransaction = doPrepare(id, xaFlags, ts, p.getPacketType(), true, txnWork, con);
             }
         }
         return baseTransaction;

@@ -680,9 +680,7 @@ public class Session implements EventBroadcaster, EventListener
                 }
 
             } catch (Exception ex) {
-                logger.logStack(Logger.INFO,
-                    "Message Gone, unable to update"
-                    + " state of the message " + ref ,ex);
+           logger.logStack(Logger.WARNING, ex.getMessage(), ex);
                 synchronized(deliveredMessages) {
                     if (entry != null)
                         deliveredMessages.get(entry);
@@ -777,9 +775,7 @@ public class Session implements EventBroadcaster, EventListener
                     }
 
                 } catch (Exception ex) {
-                    logger.logStack(Logger.INFO,
-                        "Message Gone, unable to update"
-                        + " state of the message " + ref ,ex);
+                    logger.logStack(Logger.WARNING, ex.getMessage(), ex);
                     synchronized(deliveredMessages) {
                         if (entry != null)
                             deliveredMessages.get(entry);
@@ -1438,9 +1434,10 @@ public class Session implements EventBroadcaster, EventListener
                               true, newref.isStored());
                             break;
                         } catch (Exception ex) {
-                            logger.logStack(Logger.INFO,
-                               "Internal error, unable to deliver " + cuid
-                               + ":" + ref, ex);
+                           logger.logStack(Logger.WARNING, 
+                               Globals.getBrokerResources().getKString(
+                                  BrokerResources.W_UNABLE_UPDATE_MSG_DELIVERED_STATE,
+                                  ref+"["+cuid+"]", ex.getMessage()), ex);
                         }
                     }
                 }

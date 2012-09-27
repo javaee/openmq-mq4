@@ -320,29 +320,6 @@ implements javax.jms.Session,
         boolean noLocal)
     throws JMSException
     {
-        //Check if creating subscriber in RA which is inClusteredContainer
-        //and disallow unless clientId is set
-        com.sun.messaging.jms.ra.ResourceAdapter ra = null;
-        boolean inCluster = false;
-        String cId = null;
-        if (ca != null) {
-            ra = ca.getResourceAdapter();
-            if (ra != null) {
-                inCluster = ra.getInClusteredContainer();
-                if (inCluster) {
-                    try {
-                        cId = xac.getClientID();
-                    } catch (Exception cide) {
-                    }
-                    if ((cId == null) || ("".equals(cId))) {
-                        JMSException jmse = new com.sun.messaging.jms.JMSException(_lgrMID_EXC+
-                            "createSubscriber:Exception:Require non-null, non-empty clientId for clustered non-durable subscription:cId="+cId);
-                        _loggerJS.severe(jmse.getMessage());
-                        throw jmse;
-                    }
-                }
-            }
-        }
         return xas.createSubscriber(topic, messageSelector, noLocal);
     }
  

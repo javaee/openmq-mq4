@@ -329,8 +329,17 @@ public class Subscription extends Consumer
             }
         } catch (Exception ex) {
             String args[] = {durable, clientID, d.toString()};
-            logger.log(Logger.INFO, BrokerResources.E_STORE_DURABLE,
-               args, ex);
+            if (ex instanceof BrokerException &&
+                ((BrokerException)ex).getStatusCode() == Status.CONFLICT) { 
+                logger.log(Logger.INFO, 
+                    br.getKString(br.E_STORE_DURABLE, args)+": "+ex.toString(), ex);
+            } else {
+                logger.logStack(Logger.ERROR, BrokerResources.E_STORE_DURABLE, args, ex);
+                if (ex instanceof BrokerException) {
+                    throw (BrokerException)ex;
+                }
+                throw new BrokerException(ex.getMessage(), ex);
+            }
         }
     }
 
@@ -616,8 +625,8 @@ public class Subscription extends Consumer
     }
 
 
-    public static void initSubscriptions()
-    {
+    public static void initSubscriptions() {
+
          Logger logger = Globals.getLogger();
          logger.log(Logger.DEBUG,"Initializing consumers");
          if (loaded) return;

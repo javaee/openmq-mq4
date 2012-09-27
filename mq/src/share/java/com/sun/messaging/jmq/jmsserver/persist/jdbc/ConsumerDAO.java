@@ -92,6 +92,4 @@ public interface ConsumerDAO extends BaseDAO {
     List getAllConsumers( Connection conn ) throws BrokerException;
 
     Consumer getConsumer( Connection conn, ConsumerUID consumerUID ) throws BrokerException;
-
-    boolean checkConsumer( Connection conn, Consumer consumer ) throws BrokerException;
 }

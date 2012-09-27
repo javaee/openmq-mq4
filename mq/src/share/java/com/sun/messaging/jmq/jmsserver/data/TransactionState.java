@@ -563,10 +563,11 @@ public class TransactionState implements Externalizable, Serializable {
 
     public String toString() {
         if (xid == null) {
-            return user + "@" + clientID + ":" + toString(state);
+            return user + "@" + clientID + ":" + toString(state)+
+                (onephasePrepare ? "[onephase=true]":"");
         } else {
             return user + "@" + clientID + ":" + toString(state) +
-                ":xid=" + xid.toString();
+                ":xid=" + xid.toString()+(onephasePrepare ? "[onephase=true]":"");
         }
     }
 
@@ -601,6 +602,7 @@ public class TransactionState implements Externalizable, Serializable {
          clientID = (String)in.readObject();
          connectionString = (String)in.readObject();
          connectionUID = null;
+         onephasePrepare = false;
 
          try {
             if (in.available() > 0) {

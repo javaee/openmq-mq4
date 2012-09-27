@@ -90,6 +90,9 @@ public interface BrokerConstants  {
 					= "imq.destination.logDeadMsgs";
     public static String PROP_NAME_BKR_DMQ_TRUNCATE_MSG_BODY
 					= "imq.destination.DMQ.truncateBody";
+    public static String PROP_NAME_BKR_AUTOCREATE_DESTINATION_USE_DMQ
+                                        = "imq.autocreate.destination.useDMQ";
+
     public static String PROP_NAME_BKR_IS_EMBEDDED= "imq.embedded";
     public static String PROP_NAME_BKR_VARHOME		= "imq.varhome";
     public static String PROP_NAME_BKR_LICENSE_DESC	= "imq.license.description";

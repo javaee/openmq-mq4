@@ -103,17 +103,19 @@ public interface MessageDAO extends BaseDAO {
 
     void insert( Connection conn, DestinationUID dstUID, Packet message,
         ConsumerUID[] consumerUIDs, int[] states, long storeSessionID,
-        long createdTime, boolean checkMsgExist ) throws BrokerException;
+        long createdTime, boolean checkMsgExist, boolean replaycheck )
+        throws BrokerException;
 
     void insert( Connection conn, String dstID, Packet message, 
         ConsumerUID[] consumerUIDs, int[] states, long storeSessionID,
-        long createdTime, boolean checkMsgExist ) throws BrokerException;
+        long createdTime, boolean checkMsgExist, boolean replaycheck )
+        throws BrokerException;
 
     void moveMessage( Connection conn, Packet message,
         DestinationUID from, DestinationUID to, ConsumerUID[] consumerUIDs,
         int[] states ) throws IOException, BrokerException;
 
-    void delete( Connection conn, DestinationUID dstUID, SysMessageID sysMsgID )
+    void delete( Connection conn, DestinationUID dstUID, SysMessageID sysMsgID, boolean replaycheck )
         throws BrokerException;
 
     int deleteByDestination( Connection conn, DestinationUID dstUID )

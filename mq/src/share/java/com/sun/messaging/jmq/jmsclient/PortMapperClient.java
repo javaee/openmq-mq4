@@ -215,16 +215,20 @@ public class PortMapperClient {
             Debug.println("PortMapper connecting to host: " + host + "  port: " + port);
         }
 
+        InputStream is = null;
+        OutputStream os = null;
+        Socket socket = null;
         try {
             String version =
                 String.valueOf(PortMapperTable.PORTMAPPER_VERSION) + "\n";
 
             // bug 6696742 - add ability to set connect timeout 
             int timeout = connection.getSocketConnectTimeout();
-            Socket socket = makeSocketWithTimeout(host, port, timeout);
-            
-            InputStream is = socket.getInputStream();
-            OutputStream os = socket.getOutputStream();
+            Integer sotimeout = connection.getPortMapperSoTimeout();
+            socket = makePortMapperClientSocketWithTimeout(host, port, timeout, sotimeout);
+              
+            is = socket.getInputStream();
+            os = socket.getOutputStream();
 
             // Write version of portmapper we support to broker
             try {
@@ -242,38 +246,44 @@ public class PortMapperClient {
             socket.close();
 
         } catch ( Exception e ) {
+            try {
+                if (os != null) {
+                    os.close();
+                }
+                if (is != null) {
+                    is.close();
+                }
+                if (socket != null) {
+                    socket.close();
+                }
+            } catch (Exception ee) {
+                /* ignore */
+            }
             connection.getExceptionHandler().handleConnectException (
                 e, host, port);
         }
     }
     
     
-    private Socket makeSocketWithTimeout (String host, int port, int timeout) throws IOException {
-    	
-    	Socket socket = null;
-    	
-    	if (timeout > 0) {
-    		
-    		ConnectionImpl.getConnectionLogger().fine ("connecting with timeout=" + timeout);
-    		
-    		socket = new Socket();
-    	
-    		InetSocketAddress socketAddr = new InetSocketAddress (host, port);
-    	
-    		socket.connect(socketAddr, timeout);
-    	
-    		//disable the timeout
-    		socket.setSoTimeout(0);
-    		
-    	} else {
-    		
-    		ConnectionImpl.getConnectionLogger().fine ("connecting with no timeout ...");
-    		
-    		socket = new Socket(host, port);
-    	}
-    	
-    	ConnectionImpl.getConnectionLogger().fine ("socket connected., host=" + host + ", port="+ port);
-    	
+    private Socket makePortMapperClientSocketWithTimeout (String host, int port, 
+                                          int timeout, Integer sotimeout)
+                                          throws IOException {
+        Socket socket = null;
+        if (timeout > 0) {
+            ConnectionImpl.getConnectionLogger().fine ("connecting with timeout=" + timeout);
+
+            socket = new Socket();
+            InetSocketAddress socketAddr = new InetSocketAddress (host, port);
+            socket.connect(socketAddr, timeout);
+            socket.setSoTimeout(0);
+        } else {
+            ConnectionImpl.getConnectionLogger().fine ("connecting with no timeout ...");
+            socket = new Socket(host, port);
+        }
+        if (sotimeout !=  null) {
+            socket.setSoTimeout(sotimeout.intValue());
+        }
+        ConnectionImpl.getConnectionLogger().fine ("socket connected., host=" + host + ", port="+ port);
     	return socket;
     }
 

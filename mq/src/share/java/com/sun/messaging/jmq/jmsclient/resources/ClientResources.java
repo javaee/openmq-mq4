@@ -325,7 +325,9 @@ public class ClientResources extends MQResourceBundle {
     final public static String X_ADD_CONSUMER_EVENT_LISTENER            = "C4300";
     final public static String X_NO_EVENT_LISTENER_REGISTERED           = "C4301";
     final public static String X_CONSUMER_EVENT_LISTENER_NOTFOUND       = "C4302";
-    final public static String X_EXPIRE_MESSAGE_BEFORE_DELIVERY         = "C4304";
+    final public static String X_EXPIRE_MESSAGE_BEFORE_DELIVERY         = "C4303";
+    final public static String X_BROKER_TXN_PREPARE_FAILED          =  "C4305";
+    
 
     //MQ event codes
 

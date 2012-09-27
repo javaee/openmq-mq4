@@ -642,18 +642,7 @@ public class DebugHandler extends AdminCmdHandler
                             status = Status.ERROR;
                             msg = "Unknown connectionUID " + uid;
                         } else {
-                            Packet pkt = new Packet(false);
-                            pkt.setPacketType(PacketType.DEBUG);
-                            Hashtable hash = new Hashtable(cmd_props);
-                            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                            ObjectOutputStream oos = new ObjectOutputStream(bos);
-                            oos.writeObject(p);
-                            oos.flush();
-                            bos.flush();
-                            pkt.setMessageBody(bos.toByteArray());
-                            //hash.putAll(p);
-                            pkt.setProperties(hash);
-                            cxn.sendControlMessage(pkt);
+                            sendClientDEBUG(cxn, cmd_props, p);
                         }
                     }
                 } catch (Exception ex) {
@@ -754,8 +743,22 @@ public class DebugHandler extends AdminCmdHandler
     return true;
     }
 
+    public static void sendClientDEBUG(IMQConnection cxn,
+        Hashtable cmd_props, Properties p) throws IOException {
 
-
+        Packet pkt = new Packet(false);
+        pkt.setPacketType(PacketType.DEBUG);
+        Hashtable hash = new Hashtable(cmd_props);
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        ObjectOutputStream oos = new ObjectOutputStream(bos);
+        oos.writeObject(p);
+        oos.flush();
+        bos.flush();
+        pkt.setMessageBody(bos.toByteArray());
+        //hash.putAll(p);
+        pkt.setProperties(hash);
+        cxn.sendControlMessage(pkt);
+    }
 
     public Hashtable  getDebugInfo(String arg, String target, String targetType,
               Properties p)

@@ -577,8 +577,14 @@ class BrokerDAOImpl extends BaseDAOImpl implements BrokerDAO {
         try {
             // Get a connection
             if ( conn == null ) {
-                conn = DBManager.getDBManager().getConnection( true );
-                myConn = true;
+                try {
+                    conn = DBManager.getDBManager().getConnectionNoRetry( true );
+                    myConn = true;
+                } catch (BrokerException e) {
+                    e.setSQLReconnect(true);
+                    e.setSQLRecoverable(true);
+                    throw e;
+                }
             }
 
             long heartbeat = System.currentTimeMillis();
@@ -607,8 +613,10 @@ class BrokerDAOImpl extends BaseDAOImpl implements BrokerDAO {
                 ex = e;
             }
 
-            throw new BrokerException(
+            BrokerException be = new BrokerException(
                 br.getKString( BrokerResources.X_UPDATE_HEARTBEAT_TS_FAILED, id ), ex );
+            be.setSQLRecoverable(true);
+            throw be;
         } finally {
             if ( myConn ) {
                 Util.close( null, pstmt, conn, myex );
@@ -639,8 +647,14 @@ class BrokerDAOImpl extends BaseDAOImpl implements BrokerDAO {
         try {
             // Get a connection
             if ( conn == null ) {
-                conn = DBManager.getDBManager().getConnection( true );
-                myConn = true;
+                try {
+                    conn = DBManager.getDBManager().getConnectionNoRetry( true );
+                    myConn = true;
+                } catch (BrokerException e) {
+                    e.setSQLReconnect(true);
+                    e.setSQLRecoverable(true);
+                    throw e;
+                }
             }
 
             long heartbeat = System.currentTimeMillis();
@@ -677,9 +691,11 @@ class BrokerDAOImpl extends BaseDAOImpl implements BrokerDAO {
             }
         } catch ( Exception e ) {
             myex = e;
+            boolean recoverable = false;
             try {
                 if ( (conn != null) && !conn.getAutoCommit() ) {
                     conn.rollback();
+                    recoverable = true;
                 }
             } catch ( SQLException rbe ) {
                 logger.log( Logger.ERROR, BrokerResources.X_DB_ROLLBACK_FAILED, rbe );
@@ -695,8 +711,10 @@ class BrokerDAOImpl extends BaseDAOImpl implements BrokerDAO {
             }
 
             String arg = "Expected last heartbeat " + lastHeartbeat;
-            throw new BrokerException(
+            BrokerException be = new BrokerException(
                 br.getKString( BrokerResources.X_UPDATE_HEARTBEAT_TS_2_FAILED, id, arg ), ex );
+            be.setSQLRecoverable(recoverable);
+            throw be;
         } finally {
             if ( myConn ) {
                 Util.close( null, pstmt, conn, myex );
@@ -732,8 +750,14 @@ class BrokerDAOImpl extends BaseDAOImpl implements BrokerDAO {
         try {
             // Get a connection
             if ( conn == null ) {
-                conn = DBManager.getDBManager().getConnection( true );
-                myConn = true;
+                try {
+                    conn = DBManager.getDBManager().getConnectionNoRetry( true );
+                    myConn = true;
+                } catch (BrokerException e) {
+                    e.setSQLReconnect(true);
+                    e.setSQLRecoverable(true);
+                    throw e;
+                }
             }
 
             if ( local ) {
@@ -759,9 +783,11 @@ class BrokerDAOImpl extends BaseDAOImpl implements BrokerDAO {
             }
         } catch ( Exception e ) {
             myex = e;
+            boolean recoverable = false;
             try {
                 if ( (conn != null) && !conn.getAutoCommit() ) {
                     conn.rollback();
+                    recoverable = true;
                 }
             } catch ( SQLException rbe ) {
                 logger.log( Logger.ERROR, BrokerResources.X_DB_ROLLBACK_FAILED, rbe );
@@ -776,8 +802,10 @@ class BrokerDAOImpl extends BaseDAOImpl implements BrokerDAO {
                 ex = e;
             }
 
-            throw new BrokerException(
+            BrokerException be = new BrokerException(
                 br.getKString( BrokerResources.X_PERSIST_BROKERINFO_FAILED, id ), ex );
+            be.setSQLRecoverable(recoverable);
+            throw be;
         } finally {
             if ( myConn ) {
                 Util.close( null, pstmt, conn, myex );
@@ -1077,8 +1105,14 @@ class BrokerDAOImpl extends BaseDAOImpl implements BrokerDAO {
         try {
             // Get a connection
             if ( conn == null ) {
-                conn = DBManager.getDBManager().getConnection( true );
-                myConn = true;
+                try {
+                    conn = DBManager.getDBManager().getConnectionNoRetry( true );
+                    myConn = true;
+                } catch (BrokerException e) {
+                    e.setSQLReconnect(true);
+                    e.setSQLRecoverable(true);
+                    throw e;
+                }
             }
 
             pstmt = conn.prepareStatement( selectStateSQL );
@@ -1110,8 +1144,10 @@ class BrokerDAOImpl extends BaseDAOImpl implements BrokerDAO {
                 ex = e;
             }
 
-            throw new BrokerException(
+            BrokerException be = new BrokerException(
                 br.getKString( BrokerResources.X_LOAD_BROKERINFO_FAILED, id ), ex );
+            be.setSQLRecoverable(true);
+            throw be;
         } finally {
             if ( myConn ) {
                 Util.close( rs, pstmt, conn, myex );

@@ -631,6 +631,9 @@ public class MessageImpl
   /**
    * compress message body.  This is called from
    * ProtocolHandler.writeJMSMessage() method.
+   * 
+   * NOTE: This code is duplicated from DirectPakcet.compress().  Any changes to
+   * either method should be made to both in order to keep them in sync.
    *
    * @throws JMSException if cannot compress the message.
    */
@@ -701,6 +704,9 @@ public class MessageImpl
    * decompress the message body.  This methid is called from
    * getMessageBody() above.
    *
+   * NOTE: This code is duplicated from DirectPakcet.decompress().  Any changes to
+   * either method should be made to both in order to keep them in sync.
+   * 
    * @throws JMSException if unable to decompress the message body.
    */
   protected void decompress() throws JMSException {

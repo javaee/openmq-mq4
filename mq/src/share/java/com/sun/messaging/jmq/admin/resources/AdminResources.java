@@ -961,6 +961,11 @@ public class AdminResources extends MQResourceBundle {
     final public static String I_JMQCMD_CHECKPOINT_BKR_NOOP 	= "A1784";
 
     /*
+     * String for global bkr useDMQ flag
+     */
+    final public static String I_BKR_AUTOCREATE_DESTINATION_USE_DMQ    = "A1785";
+
+    /*
      * Strings for ServiceState'
      */
     final public static String I_SERVICE_STATE_UNINITIALIZED = "A1790";

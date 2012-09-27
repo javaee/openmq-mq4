@@ -62,6 +62,9 @@ import com.sun.messaging.jmq.io.PacketType;
 import com.sun.messaging.jmq.io.SysMessageID;
 
 import com.sun.messaging.DestinationConfiguration;
+import com.sun.messaging.jmq.io.*;
+import com.sun.messaging.jmq.jmsclient.zip.Compressor;
+import com.sun.messaging.jmq.jmsclient.zip.Decompressor;
 import com.sun.messaging.jmq.jmsservice.JMSPacket;
 import com.sun.messaging.jmq.jmsservice.JMSService;
 import com.sun.messaging.jmq.jmsservice.JMSServiceReply;
@@ -145,6 +148,18 @@ public class DirectPacket
 
     protected final static byte[] pktIPAddress;
     protected final static byte[] pktMacAddress;
+    
+    protected boolean shouldCompress = false;
+
+    public static final String JMS_SUN_COMPRESS = "JMS_SUN_COMPRESS";
+
+    public static final String JMS_SUN_UNCOMPRESSED_SIZE =
+        "JMS_SUN_UNCOMPRESSED_SIZE";
+
+    public static final String JMS_SUN_COMPRESSED_SIZE =
+        "JMS_SUN_COMPRESSED_SIZE";    
+  
+    private boolean enableZip = Boolean.getBoolean("imq.zip.enable");      
 
     static {                                                                        
 //        _loggerOC = Logger.getLogger(_lgrNameOutboundConnection);
@@ -500,6 +515,9 @@ public class DirectPacket
         if (this.properties != null){
             this.properties.clear();
         }
+        
+        //set shouldCompress compress flag to false.
+        shouldCompress = false;
     }
 
     /**
@@ -1222,6 +1240,10 @@ public class DirectPacket
     public void setBooleanProperty(String name, boolean value)
     throws JMSException {
         this._checkAndSetProperty("setBooleanProperty()", name, value);
+        
+        if (JMS_SUN_COMPRESS.equals(name)) {
+            shouldCompress = value;
+        }
     }
 
     public void setByteProperty(String name, byte value)
@@ -1721,6 +1743,18 @@ public class DirectPacket
      */
     protected void preparePacketForSend()
     throws JMSException {
+        
+        //if enable zip all messages, compress the message
+        if (enableZip) {
+            compress();
+        } else if (shouldCompress) {
+            //if message JMS_SUN_COMPRESS is set in the prop, zip it.
+            compress();
+        } else {
+            //clear the bit.
+            pkt.setFlag(PacketFlag.Z_FLAG, false); 
+        }
+        
         this.pkt.setDestination(this._getJMSDestinationName());
         if (this.jmsDestination instanceof javax.jms.Queue){
             this.pkt.setIsQueue(true);
@@ -1787,7 +1821,12 @@ public class DirectPacket
     /**
      *  Get the MessageBody from the Packet
      */
-    protected byte[] _getMessageBodyByteArray() {
+    protected byte[] _getMessageBodyByteArray()
+    throws JMSException {
+        if (pkt.getFlag(PacketFlag.Z_FLAG)) {
+            decompress();
+        }
+
         return this.pkt.getMessageBodyByteArray();
     }
 
@@ -1841,4 +1880,108 @@ public class DirectPacket
         _loggerJM.warning(unsupported);
         throw new JMSException(unsupported);
     }
+    
+  /**
+   * compress message body.
+   * 
+   * NOTE: This code is duplicated from MessageImpl.compress().  Any changes to
+   * either method should be made to both in order to keep them in sync.
+   *
+   * @throws JMSException if cannot compress the message.
+   */
+  protected void compress() throws JMSException {
+
+    try {
+      /**
+       * get unzip body bytes.
+       */
+      byte[] body = pkt.getMessageBodyByteArray();
+      int offset = 0;
+      int unzipSize = pkt.getMessageBodySize();
+
+      /**
+       * no compression if no body.
+       */
+      if (body == null) {
+        setIntProperty(JMS_SUN_UNCOMPRESSED_SIZE, 0);
+        setIntProperty(JMS_SUN_COMPRESSED_SIZE, 0);
+        return;
+      }
+
+      /**
+       * byte array for the ziped body
+       */
+      JMQByteArrayOutputStream baos =
+          new JMQByteArrayOutputStream(new byte[32]);
+
+      //get a compressor instance.
+      Compressor compressor = Compressor.getInstance();
+
+      //compress body into baos.
+      compressor.compress(body, offset, unzipSize, baos);
+
+      baos.flush();
+
+      //get zipped body and size
+      byte[] zipbody = baos.getBuf();
+      int zipSize = baos.getCount();
+
+      baos.close();
+
+      //set zipped body into pkt.
+      pkt.setMessageBody(zipbody, 0, zipSize);
+
+      //set unzip size prop.
+      setIntProperty(JMS_SUN_UNCOMPRESSED_SIZE, unzipSize);
+      //set zip size prop.
+      setIntProperty(JMS_SUN_COMPRESSED_SIZE, zipSize);
+
+      //set zip flag to true.
+      pkt.setFlag(PacketFlag.Z_FLAG, true);
+
+    }
+    catch (Exception ioe) {
+      ioe.printStackTrace();
+
+      JMSException jmse = new JMSException(ioe.toString());
+      jmse.setLinkedException(ioe);
+
+      throw jmse;
+    }
+  }
+
+  /**
+   * decompress the message body.
+   *
+   * NOTE: This code is duplicated from MessageImpl.decompress().  Any changes to
+   * either method should be made to both in order to keep them in sync.
+   * 
+   * @throws JMSException if unable to decompress the message body.
+   */
+  protected void decompress() throws JMSException {
+    //get a decompressor instance.
+    Decompressor decomp = Decompressor.getInstance();
+
+    //get ziped body.
+    byte[] zipBody = pkt.getMessageBodyByteArray();
+
+    //get unziped size
+    int unzipSize = getIntProperty(JMS_SUN_UNCOMPRESSED_SIZE);
+
+    //byte[] to hold unzip body
+    byte[] unzipBody = new byte[unzipSize];
+
+    //decompress zip body into unzip body
+    decomp.decompress(zipBody, unzipBody);
+
+    //set unzip body into packet
+    pkt.setMessageBody(unzipBody, 0, unzipSize);
+
+    //set z flag to false.
+    pkt.setFlag(PacketFlag.Z_FLAG, false);
+
+    //init shouldCompress flag to true -- for the case that same message
+    //is sent without calling clear properties.
+    shouldCompress = true;
+  }
 }

@@ -347,10 +347,9 @@ protected String INITIALIZEBY = "";
 
 
     private transient ReconnectReaperTask reconnectReaper = null;
-    private static int reconnectMultiplier= Globals.getConfig().
-                  getIntProperty(Globals.IMQ+
-                 ".reconnect.interval", 5);
 
+    public static final int DEFAULT_RECONNECT_MULTIPLIER = 5;
+    public static final int RECONNECT_MULTIPLIER = getRECONNECT_MULTIPLIER();
 
     private transient ProducerFlow producerFlow = new ProducerFlow();
 
@@ -396,6 +395,15 @@ protected String INITIALIZEBY = "";
 
     private transient Map<Integer, ChangeRecordInfo> currentChangeRecordInfo = 
         Collections.synchronizedMap(new HashMap<Integer, ChangeRecordInfo>());
+
+    private static int getRECONNECT_MULTIPLIER() {
+        int v = Globals.getConfig().getIntProperty(
+            Globals.IMQ+".reconnect.interval", DEFAULT_RECONNECT_MULTIPLIER);
+        if (v < 1) {
+            v = DEFAULT_RECONNECT_MULTIPLIER;
+        }
+        return v;
+    }
 
     public ChangeRecordInfo getCurrentChangeRecordInfo(int type) {
         return currentChangeRecordInfo.get(Integer.valueOf(type));
@@ -876,7 +884,7 @@ protected String INITIALIZEBY = "";
 
     public void setReconnectInterval(long val) 
     {
-        clientReconnectInterval = val*reconnectMultiplier;
+        clientReconnectInterval = val*RECONNECT_MULTIPLIER;
     }
 
     public void clientReconnect() {

@@ -137,7 +137,7 @@ public class DirectConnection
      */
     private boolean isManaged = false;
     private boolean isPooled = false;
-    private boolean isEnlisted = false;
+    private volatile boolean isEnlisted = false;
 
     /**
      *  Holds the closed state of this DirectConnection
@@ -782,10 +782,16 @@ public class DirectConnection
     /**
      *  Get the XAResource for this DirectConnection
      */
-    protected synchronized DirectXAResource _getXAResource() {
-        if (this.xar == null) {
-            this.xar = new DirectXAResource(this,
-                    this.jmsservice, this.connectionId);
+    protected DirectXAResource _getXAResource() {
+        if (this.xar != null) {
+            return this.xar;
+        }
+
+        synchronized (this) {
+            if (this.xar == null) {
+                this.xar = new DirectXAResource(this,
+                        this.jmsservice, this.connectionId);
+            }
         }
         return this.xar;
     }
@@ -1014,7 +1020,7 @@ public class DirectConnection
      *  @return {@code true} if this connection is enlisted in an XA transaction
      *          {@code false} if this connection is not in an XA transaction
      */
-    public synchronized boolean isEnlisted() {
+    public boolean isEnlisted() {
         return this.isEnlisted;
     }
 
@@ -1024,14 +1030,14 @@ public class DirectConnection
      *  @return {@code true} if this connection is managed;
      *          {@code false} if this connection is non-managed
      */
-    public synchronized boolean isManaged() {
+    public boolean isManaged() {
         return this.isManaged;
     }
 
     /**
      *  Set the managed /non-managed state of this DirectConnection
      */
-    public synchronized void setManaged(boolean value, ManagedConnection mc) {
+    public void setManaged(boolean value, ManagedConnection mc) {
         this.isManaged = value;
         this.mc = mc;
     }
@@ -1040,7 +1046,7 @@ public class DirectConnection
      *  Set the enlisted / un-enlisted state of this DirectConnection for
      *  XA transactions
      */
-    public synchronized void setEnlisted(boolean value){
+    public void setEnlisted(boolean value){
         this.isEnlisted = value;
     }
     /**

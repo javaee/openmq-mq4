@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2000-2011 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000-2012 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -39,25 +39,44 @@
  */
 
 /*
- * @(#)mqversion.h	1.18 10/17/07
  */ 
 
-#ifndef MQ_VERSION_H
-#define MQ_VERSION_H
+package com.sun.messaging.jmq.jmsclient;
 
-/*
- * MQ version constants 
+import com.sun.messaging.jms.JMSException;
+
+/**
  */
+public class TransactionPrepareStateFAILEDException extends JMSException {
+	
+	  public TransactionPrepareStateFAILEDException
+	   (String reason, String errorCode) {
+	    super(reason, errorCode);
+	  }
 
+	  /** Constructs a <CODE>JMSException</CODE> with the specified reason and with
+	   *  the error code defaulting to null.
+	   *
+	   *  @param  reason        a description of the exception
+	   **/
+	  public
+	  TransactionPrepareStateFAILEDException (String reason) {
+	    super(reason);
+	  }
 
-#define MQ_NAME    "Oracle GlassFish(tm) Server Message Queue"
-
-#define MQ_VERSION "4.5.2"
-#define MQ_VMAJOR   4
-#define MQ_VMINOR   5
-#define MQ_VMICRO   2 
-#define MQ_SVCPACK  1
-#define MQ_URELEASE 0
-
-
-#endif /* MQ_VERSION_H */
+	  /** Constructs a <CODE>JMSException</CODE> with the specified reason,
+	   *  error code, and a specified cause.
+	   *
+	   *  @param  reason        a description of the exception
+	   *  @param  errorCode     a string specifying the vendor-specific
+	   *                        error code
+	   *  @param  cause         the cause. A <tt>null</tt> value is permitted,
+	   *                        and indicates that the cause is non-existent
+	   *                        or unknown.
+	   **/
+	  public
+	  TransactionPrepareStateFAILEDException (String reason, String errorCode, Throwable cause) {
+	    super(reason, errorCode, cause);
+	  }
+	  
+}

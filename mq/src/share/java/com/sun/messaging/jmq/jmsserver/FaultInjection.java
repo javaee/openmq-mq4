@@ -94,6 +94,7 @@ public class FaultInjection extends RuntimeFaultInjection
      public static final String FAULT_TXN_START_2 = "txn.start.2";
      public static final String FAULT_TXN_END_2 = "txn.end.2";
      public static final String FAULT_TXN_PREPARE_2 = "txn.prepare.2";
+     public static final String FAULT_TXN_PREPARE_2_0 = "txn.prepare.2_0";
      public static final String FAULT_TXN_COMMIT_2 = "txn.commit.2";
      public static final String FAULT_TXN_ROLLBACK_2 = "txn.rollback.2";
 
@@ -102,6 +103,7 @@ public class FaultInjection extends RuntimeFaultInjection
      public static final String FAULT_TXN_PREPARE_3 = "txn.prepare.3";
      public static final String FAULT_TXN_COMMIT_3 = "txn.commit.3";
      public static final String FAULT_TXN_ROLLBACK_3 = "txn.rollback.3";
+     public static final String FAULT_TXN_PREPARE_3_KILL_CLIENT = "txn.prepare.3_kill_client";
 
      // after db update but before reply
      public static final String FAULT_TXN_COMMIT_4 = "txn.commit.4";
@@ -168,6 +170,7 @@ public class FaultInjection extends RuntimeFaultInjection
      public static final String MSG_REMOTE_ACK_TXNROLLBACK = "txnrollback.";
      public static final String MSG_REMOTE_ACK_TXNCOMMIT   = "txncommit.";
      public static final String MSG_REMOTE_ACK_P      = "msg.remote_ack.p.";
+     public static final String MSG_REMOTE_ACK_C      = "msg.remote_ack.c.";
      public static final String MSG_REMOTE_ACK_HOME_P = "msg.remote_ack.home.p.";
      public static final String MSG_REMOTE_ACK_HOME_C = "msg.remote_ack.home.c.";
 
@@ -196,6 +199,10 @@ public class FaultInjection extends RuntimeFaultInjection
                             MSG_REMOTE_ACK_HOME_P+MSG_REMOTE_ACK_TXNPREPARE+"2";
      public static final String FAULT_MSG_REMOTE_ACK_HOME_P_TXNPREPARE_3 = 
                             MSG_REMOTE_ACK_HOME_P+MSG_REMOTE_ACK_TXNPREPARE+"3";
+
+     public static final String FAULT_MSG_REMOTE_ACK_C_TXNPREPARE_0_5 =
+                            MSG_REMOTE_ACK_C+MSG_REMOTE_ACK_TXNPREPARE+"0_5";
+
 
      public static final String FAULT_MSG_REMOTE_ACK_P_TXNPREPARE_3_1 = 
                             MSG_REMOTE_ACK_P+MSG_REMOTE_ACK_TXNPREPARE+"3_1";

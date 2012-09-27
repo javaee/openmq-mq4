@@ -585,7 +585,7 @@ public  class ClusterBroadcaster implements ClusterBroadcast,
                 sm.removeServiceRestriction(ServiceType.NORMAL, 
                    ServiceRestriction.NO_SYNC_WITH_MASTERBROKER);
             } else {
-                sm.resumeAllActiveServices(ServiceType.NORMAL);
+                sm.resumeAllActiveServices(ServiceType.NORMAL, true);
             }
         }
         catch (Exception e) {

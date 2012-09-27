@@ -83,6 +83,7 @@ public class ConnectionManager extends WeakValueHashMap
     public boolean PING_ENABLED = Globals.getConfig().getBooleanProperty(
                            Globals.IMQ + ".ping.enabled", true);
 
+    public static final long DEFAULT_RECONNECT_INTERVAL = 10000; //millisec
 
     private ConnectionWatcher connectionWatcher = null;
 
@@ -475,6 +476,20 @@ public class ConnectionManager extends WeakValueHashMap
             }
         }
         lastConCheck = System.currentTimeMillis();
+    }
+
+    public long getMaxReconnectInterval() {
+        List cons = getConnectionList(null);
+        Connection con = null;
+        long max = DEFAULT_RECONNECT_INTERVAL, interval = 0L;
+        for (int i = cons.size()-1; i >= 0; i--) {
+            con = (Connection)cons.get(i);
+            interval = con.getReconnectInterval();
+            if (interval > max) {
+                max = interval;
+            }
+        }
+        return  max;
     }
 
     public ConsumerInfoNotifyManager getConsumerInfoNotifyManager() {

@@ -170,6 +170,7 @@ class HADBMessageDAOImpl extends MessageDAOImpl {
      * @param brokerID broker ID
      * @throws BrokerException if msg cannot be inserted
      */
+    @Override
     protected void canInsertMsg( Connection conn, String msgID, String dstID,
         String brokerID ) throws BrokerException {
 

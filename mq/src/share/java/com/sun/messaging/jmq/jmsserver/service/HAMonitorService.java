@@ -1241,6 +1241,7 @@ public class HAMonitorService implements ClusterListener
                     takeoverRunnable = null;
                     takeoverRunnableLock.notify();
                 }
+                Globals.getTransactionList().postProcess();
             }
         }
     }

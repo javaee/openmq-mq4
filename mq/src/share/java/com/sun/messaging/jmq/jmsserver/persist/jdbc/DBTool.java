@@ -196,14 +196,14 @@ public class DBTool implements DBConstants {
     private void doCreate(boolean createdb, CommDBManager mgrArg)
 	throws BrokerException {
 
-    CommDBManager mgr = (mgrArg == null ? dbmgr:mgrArg);
+        CommDBManager mgr = (mgrArg == null ? dbmgr:mgrArg);
 	Connection conn = null;
 	try {
             if (createdb) {
                 conn = mgr.connectToCreate();
                 conn.setAutoCommit( true );
             } else {
-                conn = mgr.newConnection( true ); // set autoCommit to true
+                conn = mgr.getNewConnection( true ); // set autoCommit to true
             }
 
             // Check if store exist
@@ -2432,9 +2432,9 @@ public class DBTool implements DBConstants {
 	    tool.doCommand(args);
 	} catch (Exception e) {
             if (e instanceof BrokerException) {
-                logger.logStack(Logger.ERROR, e.getMessage(), e);
+                Globals.getLogger().logStack(Logger.ERROR, e.getMessage(), e);
             } else {
-                logger.logStack(Logger.ERROR, e.getMessage(), e);
+                Globals.getLogger().logStack(Logger.ERROR, e.getMessage(), e);
             }
 
             if (tool.debugSpecified) {

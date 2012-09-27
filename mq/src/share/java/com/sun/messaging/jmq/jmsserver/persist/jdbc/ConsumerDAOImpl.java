@@ -67,6 +67,8 @@ class ConsumerDAOImpl extends BaseDAOImpl implements ConsumerDAO {
 
     // SQLs
     protected String insertSQL;
+    protected String insertNoDupSQLDual;
+    protected String insertNoDupSQL;
     protected String deleteSQL;
     protected String selectSQL;
     protected String selectAllSQL;
@@ -93,6 +95,34 @@ class ConsumerDAOImpl extends BaseDAOImpl implements ConsumerDAO {
             .append( CLIENT_ID_COLUMN ).append( ", " )
             .append( CREATED_TS_COLUMN )
             .append( ") VALUES ( ?, ?, ?, ?, ? )" )
+            .toString();
+
+        insertNoDupSQLDual = new StringBuffer(128)
+            .append( "INSERT INTO " ).append( tableName )
+            .append( " ( " )
+            .append( ID_COLUMN ).append( ", " )
+            .append( CONSUMER_COLUMN ).append( ", " )
+            .append( DURABLE_NAME_COLUMN ).append( ", " )
+            .append( CLIENT_ID_COLUMN ).append( ", " )
+            .append( CREATED_TS_COLUMN )
+            .append( " ) SELECT ?, ?, ?, ?, ? FROM DUAL " )
+            .append( " WHERE NOT EXISTS ").append( "(SELECT 1 FROM " ).append( tableName )
+            .append( " WHERE ").append( DURABLE_NAME_COLUMN ).append(" = ? ") 
+            .append( " AND ").append( CLIENT_ID_COLUMN ).append(" = ? )" ) 
+            .toString();
+
+        insertNoDupSQL = new StringBuffer(128)
+            .append( "INSERT INTO " ).append( tableName )
+            .append( " ( " )
+            .append( ID_COLUMN ).append( ", " )
+            .append( CONSUMER_COLUMN ).append( ", " )
+            .append( DURABLE_NAME_COLUMN ).append( ", " )
+            .append( CLIENT_ID_COLUMN ).append( ", " )
+            .append( CREATED_TS_COLUMN )
+            .append( " ) SELECT ?, ?, ?, ?, ? FROM " ).append( tableName )
+            .append( " WHERE ").append( DURABLE_NAME_COLUMN ).append(" = ? ") 
+            .append( " AND ").append( CLIENT_ID_COLUMN ).append(" = ? " ) 
+            .append( " HAVING COUNT(*) ").append( " = 0 " ) 
             .toString();
 
         deleteSQL = new StringBuffer(128)
@@ -170,28 +200,58 @@ class ConsumerDAOImpl extends BaseDAOImpl implements ConsumerDAO {
         }
 
         boolean myConn = false;
+        String sql = insertSQL;
         PreparedStatement pstmt = null;
         Exception myex = null;
         try {
-            // Get a connection
+            DBManager dbMgr = DBManager.getDBManager();
             if ( conn == null ) {
-                conn = DBManager.getDBManager().getConnection( true );
+                conn = dbMgr.getConnection( true );
                 myConn = true;
             }
 
-            if ( checkConsumer( conn, consumer ) ) {
+            if ( checkConsumer( conn, consumer, true ) ) {
                 throw new BrokerException(
-                    br.getKString( BrokerResources.E_INTEREST_EXISTS_IN_STORE,
-                    consumerUID ) );
+                    br.getKString(BrokerResources.E_INTEREST_EXISTS_IN_STORE,
+                    "["+consumer.toString()+"]", consumer.getDestinationUID()), Status.CONFLICT );
+            }
+            if ( durableName != null &&
+                 checkConsumer( conn, consumer, false ) ) {
+                throw new BrokerException(
+                    br.getKString(br.X_DURABLE_SUB_EXIST_IN_STORE_ALREADY, 
+                                  "["+durableName+", "+clientID+"]"));
+            }
+            if (durableName != null && !dbMgr.isHADB() && !dbMgr.isDB2()) {
+                sql = insertNoDupSQL;
             }
 
-            pstmt = conn.prepareStatement( insertSQL );
+            pstmt = conn.prepareStatement( sql );
             pstmt.setLong( 1, consumerUID.longValue() );
             Util.setObject( pstmt, 2, consumer );
             Util.setString( pstmt, 3, durableName );
             Util.setString( pstmt, 4, clientID );
             pstmt.setLong( 5, createdTS );
-            pstmt.executeUpdate();
+            if (durableName != null && !dbMgr.isHADB() && !dbMgr.isDB2()) {
+                pstmt.setString( 6, durableName );
+                pstmt.setString( 7, clientID );
+            }
+            if (pstmt.executeUpdate() == 0) {
+                if ( checkConsumer( conn, consumer, true ) ) {
+                    throw new BrokerException(
+                        br.getKString(BrokerResources.E_INTEREST_EXISTS_IN_STORE,
+                        consumer.toString(), ""+consumer.getDestinationUID()), Status.CONFLICT );
+                }
+                if ( durableName != null &&
+                     checkConsumer( conn, consumer, false ) ) {
+                    throw new BrokerException(
+                        br.getKString(BrokerResources.X_PERSIST_INTEREST_FAILED, consumer.toString())
+                        +": "+
+                        br.getKString(br.X_DURABLE_SUB_EXIST_IN_STORE_ALREADY, "["+durableName+", "+clientID+"]"));
+                }
+                throw new BrokerException( br.getKString(
+                    BrokerResources.X_PERSIST_INTEREST_FAILED,
+                    consumerUID) );
+            }
         } catch ( Exception e ) {
             myex = e;
             try {
@@ -206,9 +266,9 @@ class ConsumerDAOImpl extends BaseDAOImpl implements ConsumerDAO {
             if ( e instanceof BrokerException ) {
                 throw (BrokerException)e;
             } else if ( e instanceof IOException ) {
-                ex = DBManager.wrapIOException("[" + insertSQL + "]", (IOException)e);
+                ex = DBManager.wrapIOException("[" + sql + "]", (IOException)e);
             } else if ( e instanceof SQLException ) {
-                ex = DBManager.wrapSQLException("[" + insertSQL + "]", (SQLException)e);
+                ex = DBManager.wrapSQLException("[" + sql + "]", (SQLException)e);
             } else {
                 ex = e;
             }
@@ -446,12 +506,14 @@ class ConsumerDAOImpl extends BaseDAOImpl implements ConsumerDAO {
      * @return return true if the specified consumer exists
      * @throws BrokerException
      */
-    public boolean checkConsumer( Connection conn, Consumer consumer ) throws BrokerException {
+    private boolean checkConsumer( Connection conn, Consumer consumer, boolean byId  )
+    throws BrokerException {
 
         boolean found = false;
         ConsumerUID consumerUID = consumer.getConsumerUID();
 
         boolean myConn = false;
+        String sql = selectExistByIDSQL;
         PreparedStatement pstmt = null;
         ResultSet rs = null;
         Exception myex = null;
@@ -461,9 +523,17 @@ class ConsumerDAOImpl extends BaseDAOImpl implements ConsumerDAO {
                 conn = DBManager.getDBManager().getConnection( true );
                 myConn = true;
             }
+            if (!byId) {
+                sql = selectExistSQL;
+            }
 
-            pstmt = conn.prepareStatement( selectExistByIDSQL );
-            pstmt.setLong( 1, consumerUID.longValue() );
+            pstmt = conn.prepareStatement( sql );
+            if (byId) {
+                pstmt.setLong( 1, consumerUID.longValue() );
+            } else {
+                pstmt.setString( 1, ((Subscription)consumer).getDurableName() );
+                pstmt.setString( 2, ((Subscription)consumer).getClientID() );
+            }
             rs = pstmt.executeQuery();
             if ( rs.next() ) {
                 found = true;
@@ -475,14 +545,14 @@ class ConsumerDAOImpl extends BaseDAOImpl implements ConsumerDAO {
                     conn.rollback();
                 }
             } catch ( SQLException rbe ) {
-                logger.log( Logger.ERROR, BrokerResources.X_DB_ROLLBACK_FAILED+"["+selectExistByIDSQL+"]", rbe );
+                logger.log( Logger.ERROR, BrokerResources.X_DB_ROLLBACK_FAILED+"["+sql+"]", rbe );
             }
 
             Exception ex;
             if ( e instanceof BrokerException ) {
                 throw (BrokerException)e;
             } else if ( e instanceof SQLException ) {
-                ex = DBManager.wrapSQLException("[" + selectExistByIDSQL + "]", (SQLException)e);
+                ex = DBManager.wrapSQLException("[" + sql + "]", (SQLException)e);
             } else {
                 ex = e;
             }

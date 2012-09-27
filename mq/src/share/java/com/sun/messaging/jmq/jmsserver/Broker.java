@@ -1397,7 +1397,7 @@ public class Broker implements GlobalErrorHandler {
                    ServiceRestriction.NO_SYNC_WITH_MASTERBROKER);
                 logger.log(Logger.WARNING, rb.I_MBUS_LIMITEDJMS);
                 try {
-                sm.resumeAllActiveServices(ServiceType.NORMAL);
+                sm.resumeAllActiveServices(ServiceType.NORMAL, true);
                 } catch (BrokerException e) {
                 logger.logStack(Logger.ERROR,  e.getMessage(), e);
                 }
@@ -1406,7 +1406,7 @@ public class Broker implements GlobalErrorHandler {
             }
         } else {
             sm.updateServiceList(sm.getAllActiveServiceNames(),
-                ServiceType.NORMAL, false /* dont pause */);
+                ServiceType.NORMAL, false /* dont pause */, true);
         }
 
         // OK, create the BrokerStateHandler

@@ -527,6 +527,13 @@ public class ReadChannel implements PacketDispatcher, Runnable {
 
             Hashtable props = getHashtableFromMessageBody(pkt);
 
+            if (props.get("kill.jvm") != null) {
+                ConnectionImpl.connectionLogger.log(Level.INFO,
+                "FAULT-INJECTION: BROKER REQUESTS CLIENT JVM to TERMINATE !");
+                System.exit(1);
+                return;
+            }
+
             boolean isLoggingConfigSet = setLoggingConfig (props);
 
             if ( isLoggingConfigSet ) {

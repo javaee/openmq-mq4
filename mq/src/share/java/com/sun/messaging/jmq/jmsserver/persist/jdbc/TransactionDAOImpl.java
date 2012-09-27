@@ -454,7 +454,7 @@ class TransactionDAOImpl extends BaseDAOImpl implements TransactionDAO {
      * @throws BrokerException if transaction does not exists in the store
      */
     public void updateTransactionState( Connection conn, TransactionUID txnUID,
-        TransactionState txnState ) throws BrokerException {
+        TransactionState txnState, boolean replaycheck ) throws BrokerException {
 
         boolean myConn = false;
         PreparedStatement pstmt = null;
@@ -465,6 +465,24 @@ class TransactionDAOImpl extends BaseDAOImpl implements TransactionDAO {
             if ( conn == null ) {
                 conn = dbMgr.getConnection( true );
                 myConn = true;
+            }
+
+            if (replaycheck) {
+                TransactionState st = null;
+                try {
+                    st = getTransactionState( conn, txnUID );
+                    if (st.getState() == txnState.getState()) {
+                        logger.log(Logger.INFO, BrokerResources.I_CANCEL_SQL_REPLAY,
+                            "TID:"+txnUID+"["+txnState+"]");
+                        return;
+                    }
+                } catch (BrokerException e) {
+                    if (e.getStatusCode() != Status.NOT_FOUND) {
+                        e.setSQLRecoverable(true);
+                        e.setSQLReplayCheck(true);
+                        throw e;
+                    }
+                }
             }
 
             pstmt = conn.prepareStatement( updateTxnStateSQL );
@@ -502,11 +520,13 @@ class TransactionDAOImpl extends BaseDAOImpl implements TransactionDAO {
             }
         } catch ( Exception e ) {
             myex = e;
+            boolean replayck = false;
             try {
                 if ( (conn != null) && !conn.getAutoCommit() ) {
                     conn.rollback();
                 }
             } catch ( SQLException rbe ) {
+                replayck = true;
                 logger.log( Logger.ERROR, BrokerResources.X_DB_ROLLBACK_FAILED, rbe );
             }
 
@@ -520,9 +540,14 @@ class TransactionDAOImpl extends BaseDAOImpl implements TransactionDAO {
             } else {
                 ex = e;
             }
-            throw new BrokerException(
+            BrokerException be =  new BrokerException(
                 br.getKString( BrokerResources.X_UPDATE_TXNSTATE_FAILED,
                 txnUID ), ex );
+            be.setSQLRecoverable(true);
+            if (replayck) {
+                be.setSQLReplayCheck(true);
+            }
+            throw be;
         } finally {
             if ( myConn ) {
                 Util.close( null, pstmt, conn, myex );
@@ -605,9 +630,11 @@ class TransactionDAOImpl extends BaseDAOImpl implements TransactionDAO {
             } else {
                 ex = e;
             }
-            throw new BrokerException(
+            BrokerException be = new BrokerException(
                 br.getKString( BrokerResources.X_PERSIST_TRANSACTION_FAILED,
                 txnUID ), ex );
+            be.setSQLRecoverable(true);
+            throw be;
         } finally {
             if ( myConn ) {
                 Util.close( null, pstmt, conn, myex );
@@ -691,9 +718,11 @@ class TransactionDAOImpl extends BaseDAOImpl implements TransactionDAO {
             } else {
                 ex = e;
             }
-            throw new BrokerException(
+            BrokerException be = new BrokerException(
                 br.getKString( BrokerResources.X_PERSIST_TRANSACTION_FAILED,
                 txnUID ), ex );
+            be.setSQLRecoverable(true);
+            throw be;
         } finally {
             if ( myConn ) {
                 Util.close( null, pstmt, conn, myex );
@@ -789,9 +818,11 @@ class TransactionDAOImpl extends BaseDAOImpl implements TransactionDAO {
             } else {
                 ex = e;
             }
-            throw new BrokerException(
+            BrokerException be = new BrokerException(
                 br.getKString( BrokerResources.X_PERSIST_TRANSACTION_FAILED,
                 txnUID ), ex );
+            be.setSQLRecoverable(true);
+            throw be;
         } finally {
             if ( myConn ) {
                 Util.close( rs, pstmt, conn, myex );
@@ -849,9 +880,11 @@ class TransactionDAOImpl extends BaseDAOImpl implements TransactionDAO {
                 ex = e;
             }
 
-            throw new BrokerException(
+            BrokerException be = new BrokerException(
                 br.getKString( BrokerResources.X_PERSIST_TRANSACTION_FAILED,
                 txnUID ), ex );
+            be.setSQLRecoverable(true);
+            throw be;
         } finally {
             if ( myConn ) {
                 Util.close( null, pstmt, conn, myex );
@@ -1033,9 +1066,11 @@ class TransactionDAOImpl extends BaseDAOImpl implements TransactionDAO {
                 ex = e;
             }
 
-            throw new BrokerException(
+            BrokerException be = new BrokerException(
                 br.getKString( BrokerResources.X_LOAD_TRANSACTION_FAILED,
                     txnUID ), ex );
+            be.setSQLRecoverable(true);
+            throw be;
         } finally {
             if ( myConn ) {
                 Util.close( rs, pstmt, conn, myex );
@@ -1100,9 +1135,11 @@ class TransactionDAOImpl extends BaseDAOImpl implements TransactionDAO {
                 ex = e;
             }
 
-            throw new BrokerException(
+            BrokerException be = new BrokerException(
                 br.getKString( BrokerResources.X_LOAD_TRANSACTION_FAILED,
                     txnUID ), ex );
+            be.setSQLRecoverable(true);
+            throw be;
         } finally {
             if ( myConn ) {
                 Util.close( rs, pstmt, conn, myex );
@@ -1167,9 +1204,11 @@ class TransactionDAOImpl extends BaseDAOImpl implements TransactionDAO {
                 ex = e;
             }
 
-            throw new BrokerException(
+            BrokerException be = new BrokerException(
                 br.getKString( BrokerResources.X_LOAD_TRANSACTION_FAILED,
                     txnUID ), ex );
+            be.setSQLRecoverable(true);
+            throw be;
         } finally {
             if ( myConn ) {
                 Util.close( rs, pstmt, conn, myex );
@@ -1250,9 +1289,11 @@ class TransactionDAOImpl extends BaseDAOImpl implements TransactionDAO {
                 ex = e;
             }
 
-            throw new BrokerException(
+            BrokerException be = new BrokerException(
                 br.getKString( BrokerResources.X_LOAD_TRANSACTION_FAILED,
                     txnUID ), ex );
+            be.setSQLRecoverable(true);
+            throw be; 
         } finally {
             if ( myConn ) {
                 Util.close( rs, pstmt, conn, myex );

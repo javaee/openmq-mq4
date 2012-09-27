@@ -240,7 +240,9 @@ public class HelloHandler extends PacketHandler
               Long interval = (Long)hello_props.get("JMQInterval");
 
               // LKS - XXX just override for testing
-              long itime = interval == null ? 10000 : interval.intValue();
+              long itime = (interval == null ?
+                 ConnectionManager.DEFAULT_RECONNECT_INTERVAL : interval.longValue());
+
               con.setReconnectInterval(itime);
                
           } else {

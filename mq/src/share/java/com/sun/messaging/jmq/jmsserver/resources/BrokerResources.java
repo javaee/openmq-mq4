@@ -592,6 +592,12 @@ public class BrokerResources extends MQResourceBundle {
     final public static String I_DB_POOL_POLL_WAIT = "B1393";
     final public static String I_CHECKPOINT_START = "B1422";
     final public static String I_CHECKPOINT_END = "B1423";
+    
+    final public static String I_CANCEL_SQL_REPLAY = "B1430";
+    final public static String I_DB_CONN_EX_TOBE_DESTROYED = "B1431";    
+    final public static String I_SET_TXN_TIMEOUT = "B1432";
+    final public static String I_USE_JDBC_DRIVER = "B1433";
+
 
     // 2000-2999 Warning Messages
     final public static String W_AUTH_FAILED	 	= "B2000";
@@ -874,6 +880,9 @@ public class BrokerResources extends MQResourceBundle {
     final public static String W_EXCEPTION_PROCESS_REMOTE_MSG  = "B2256";
     final public static String W_PROCESS_REMOTE_MSG_DST_LIMIT  = "B2257";
     final public static String W_CHECKPOINT_WAIT_PLAYTO_STORE_TIMEOUT  = "B2259";
+    
+    final public static String W_IGNORE_VALUE_IN_PROPERTY_LIST  = "B2262";
+    final public static String W_UNABLE_UPDATE_MSG_DELIVERED_STATE  = "B2263";
 
     // 3000-3999 Error Messages
     final public static String E_PERSISTENT_OPEN 	= "B3000";
@@ -1537,6 +1546,9 @@ public class BrokerResources extends MQResourceBundle {
     final public static String X_SESSION_CLOSED = "B4360";
     final public static String X_UNABLE_PROCESS_MESSAGE_ACK = "B4361";
     final public static String X_COULD_NOT_DELETE_FILE = "B4362";
+
+    final public static String X_RECEIVED_MSG_WITH_UNKNOWN_TID = "B4391";
+    final public static String X_DURABLE_SUB_EXIST_IN_STORE_ALREADY = "B4392";
 
     /***************** End of message key constants *******************/
 

@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 2000-2011 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000-2012 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -39,25 +39,18 @@
  */
 
 /*
- * @(#)mqversion.h	1.18 10/17/07
  */ 
 
-#ifndef MQ_VERSION_H
-#define MQ_VERSION_H
+package com.sun.messaging.jmq.jmsserver.persist.jdbc.comm;
 
-/*
- * MQ version constants 
+import java.sql.SQLException;
+
+/**
  */
+public class MQSQLException extends SQLException {
 
+   public MQSQLException(String reason, String sqlState, int vendorCode) {
+       super(reason, sqlState, vendorCode);
+    }
+}
 
-#define MQ_NAME    "Oracle GlassFish(tm) Server Message Queue"
-
-#define MQ_VERSION "4.5.2"
-#define MQ_VMAJOR   4
-#define MQ_VMINOR   5
-#define MQ_VMICRO   2 
-#define MQ_SVCPACK  1
-#define MQ_URELEASE 0
-
-
-#endif /* MQ_VERSION_H */

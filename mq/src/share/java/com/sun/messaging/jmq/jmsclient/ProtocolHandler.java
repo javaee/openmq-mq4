@@ -4124,7 +4124,7 @@ public class ProtocolHandler {
 			throws JMSException {
     	
     	//only check if it is a GONE status
-		if (statusCode != Status.GONE) {
+		if (statusCode == Status.OK) {
 			return;
 		}
 
@@ -4136,7 +4136,7 @@ public class ProtocolHandler {
 		
 		Boolean value = (Boolean) replyProps.get("JMQRemote");
 
-		if (value != null && value.booleanValue()) {
+		if (value != null && value.booleanValue() && statusCode == Status.GONE) {
 			// throw JMSException with error code
 			String errorString = AdministeredObject.cr
 					.getKString(ClientResources.X_ACK_FAILED_REMOTE);
@@ -4149,6 +4149,18 @@ public class ProtocolHandler {
 			ExceptionHandler
 					.throwJMSException(raex);
 		}
+                value = (Boolean) replyProps.get("JMQPrepareStateFAILED");
+           	if (value != null && value.booleanValue()) {
+                    Long tid = (Long)replyProps.get("JMQTransactionID");
+                    String errorString = AdministeredObject.cr
+           		.getKString(ClientResources.X_BROKER_TXN_PREPARE_FAILED,
+                                    (tid == null ?"":tid));
+                    TransactionPrepareStateFAILEDException be =
+           		new TransactionPrepareStateFAILEDException(errorString,
+                            ClientResources.X_BROKER_TXN_PREPARE_FAILED);
+
+                    ExceptionHandler.throwJMSException(be);
+           	}
 	}
 
     /**

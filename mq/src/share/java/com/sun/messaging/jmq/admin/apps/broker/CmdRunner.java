@@ -6478,6 +6478,12 @@ public class CmdRunner implements BrokerCmdOptions, BrokerConstants, AdminEventL
 	row[1] = checkAndPrintUnlimited(value, negOneString);
         bcp.add(row);
 
+        row[0] = ar.getString(ar.I_BKR_AUTOCREATE_DESTINATION_USE_DMQ);
+        value = bkrProps.getProperty(PROP_NAME_BKR_AUTOCREATE_DESTINATION_USE_DMQ, "");
+ 
+        row[1] = value;
+        bcp.add(row);
+
 	row[0] = "";
 	row[1] = "";
 	bcp.add(row);

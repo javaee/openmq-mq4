@@ -529,7 +529,7 @@ public class UpgradeHAStore implements DBConstants {
 
                 try {
                     msgDAO.insert( conn, dstID, msg, null, null, sessionID,
-                        createdTS, true );
+                        createdTS, true, false );
                 } catch (BrokerException be) {
                     // If msg exist, just logged and continue
                     if (be.getStatusCode() == Status.CONFLICT) {
